@@ -7,6 +7,12 @@ pydantic-settings>=2.0.0
 # Database
 psycopg2-binary>=2.9.0
 
+# Code Processing
+tree-sitter>=0.22.0
+tree-sitter-python>=0.21.0
+tree-sitter-javascript>=0.21.0
+langchain-text-splitters>=0.2.0
+
 # Utilities
 loguru>=0.7.0
 gitpython>=3.1.0
