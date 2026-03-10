@@ -9,3 +9,4 @@ psycopg2-binary>=2.9.0
 
 # Utilities
 loguru>=0.7.0
+gitpython>=3.1.0
