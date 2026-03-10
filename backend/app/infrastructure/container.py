@@ -1,0 +1,146 @@
+from app.config import Settings
+from app.domain.ports import (
+    ChunkingPort,
+    EmbeddingPort,
+    LLMPort,
+    RepomapPort,
+    RepositoryPort,
+    VectorStorePort,
+)
+from app.infrastructure.adapters.gemini_embedding import GeminiEmbeddingAdapter
+from app.infrastructure.adapters.voyage_embedding import VoyageEmbeddingAdapter
+from app.infrastructure.adapters.tree_sitter_chunker import TreeSitterChunkingAdapter
+from app.infrastructure.adapters.tree_sitter_limited_chunker import TreeSitterLimitedChunkingAdapter
+from app.infrastructure.adapters.chroma_store import ChromaVectorStoreAdapter
+from app.infrastructure.adapters.git_repository import GitRepositoryAdapter
+from app.infrastructure.adapters.tree_sitter_repomap import TreeSitterRepomapAdapter
+from app.infrastructure.adapters.gemini_llm import GeminiLLMAdapter
+from app.infrastructure.rate_limiter import RateLimitedEmbeddings
+from app.infrastructure.database import Database
+
+EMBEDDING_REGISTRY = {
+    "gemini": GeminiEmbeddingAdapter,
+    "voyage": VoyageEmbeddingAdapter,
+}
+
+CHUNKING_REGISTRY = {
+    "tree-sitter": lambda: TreeSitterChunkingAdapter(
+        include_methods=True,
+    ),
+    "tree-sitter-limited": lambda: TreeSitterLimitedChunkingAdapter(
+        include_methods=True,
+        max_chunk_size=2048,
+        chunk_overlap=256,
+    ),
+}
+
+
+class Container:
+    """DI Container - resolves and caches all infrastructure instances."""
+
+    def __init__(self, settings: Settings) -> None:
+        self._settings = settings
+        self._embedding: EmbeddingPort | None = None
+        self._chunking: ChunkingPort | None = None
+        self._vector_store: VectorStorePort | None = None
+        self._repository: RepositoryPort | None = None
+        self._repomap: RepomapPort | None = None
+        self._llm: LLMPort | None = None
+        self._database: Database | None = None
+
+    # Embedding
+
+    @property
+    def embedding(self) -> EmbeddingPort:
+        if self._embedding is None:
+            key = self._settings.EMBEDDING_MODEL.lower()
+            cls = EMBEDDING_REGISTRY.get(key)
+            if cls is None:
+                available = ", ".join(EMBEDDING_REGISTRY.keys())
+                raise ValueError(
+                    f"Unknown embedding model '{key}'. Available: {available}"
+                )
+            self._embedding = cls()
+        return self._embedding
+
+    # Chunking
+
+    @property
+    def chunking(self) -> ChunkingPort:
+        if self._chunking is None:
+            key = self._settings.CHUNKING_STRATEGY.lower()
+            factory = CHUNKING_REGISTRY.get(key)
+            if factory is None:
+                available = ", ".join(CHUNKING_REGISTRY.keys())
+                raise ValueError(
+                    f"Unknown chunking strategy '{key}'. Available: {available}"
+                )
+            self._chunking = factory()
+        return self._chunking
+
+    # Vector Store
+
+    @property
+    def vector_store(self) -> VectorStorePort:
+        if self._vector_store is None:
+            raw_embeddings = self.embedding.get_embeddings()
+            rpm = (
+                self._settings.EMBEDDING_RPM
+                if self._settings.EMBEDDING_RPM > 0
+                else self.embedding.default_rpm
+            )
+            rate_limited = RateLimitedEmbeddings(raw_embeddings, rpm)
+
+            self._vector_store = ChromaVectorStoreAdapter(
+                host=self._settings.CHROMA_HOST,
+                port=self._settings.CHROMA_PORT,
+                embeddings=rate_limited,
+                batch_size=self._settings.BATCH_SIZE,
+                delay_between_batches=self._settings.DELAY_BETWEEN_BATCHES,
+            )
+        return self._vector_store
+
+    # Repository
+
+    @property
+    def repository(self) -> RepositoryPort:
+        if self._repository is None:
+            self._repository = GitRepositoryAdapter()
+        return self._repository
+
+    # Repomap
+
+    @property
+    def repomap(self) -> RepomapPort:
+        if self._repomap is None:
+            self._repomap = TreeSitterRepomapAdapter()
+        return self._repomap
+
+    # LLM
+
+    @property
+    def llm(self) -> LLMPort:
+        if self._llm is None:
+            self._llm = GeminiLLMAdapter(
+                api_key=self._settings.GOOGLE_API_KEY,
+                model_name=self._settings.LLM_MODEL,
+                max_context_tokens=self._settings.LLM_MAX_CONTEXT_TOKENS,
+                temperature=self._settings.LLM_TEMPERATURE,
+                max_retries=self._settings.LLM_MAX_RETRIES,
+                retry_base_delay=self._settings.LLM_RETRY_BASE_DELAY,
+            )
+        return self._llm
+
+    # Database
+
+    @property
+    def database(self) -> Database:
+        if self._database is None:
+            self._database = Database(
+                host=self._settings.POSTGRES_HOST,
+                port=self._settings.POSTGRES_PORT,
+                user=self._settings.POSTGRES_USER,
+                password=self._settings.POSTGRES_PASSWORD,
+                dbname=self._settings.POSTGRES_DB,
+            )
+        return self._database
