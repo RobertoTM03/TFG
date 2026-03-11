@@ -83,7 +83,7 @@ class Container:
     @property
     def vector_store(self) -> VectorStorePort:
         if self._vector_store is None:
-            raw_embeddings = self.embedding.get_embeddings()
+            raw_embeddings = self.embedding
             rpm = (
                 self._settings.EMBEDDING_RPM
                 if self._settings.EMBEDDING_RPM > 0
@@ -122,7 +122,6 @@ class Container:
     def llm(self) -> LLMPort:
         if self._llm is None:
             self._llm = GeminiLLMAdapter(
-                api_key=self._settings.GOOGLE_API_KEY,
                 model_name=self._settings.LLM_MODEL,
                 max_context_tokens=self._settings.LLM_MAX_CONTEXT_TOKENS,
                 temperature=self._settings.LLM_TEMPERATURE,
