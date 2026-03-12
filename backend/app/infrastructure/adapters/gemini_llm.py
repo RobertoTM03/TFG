@@ -3,8 +3,8 @@ import re
 import time
 from typing import List
 
-import google.generativeai as genai
-from google.api_core.exceptions import ResourceExhausted
+from google import genai
+from google.genai import types, errors
 from loguru import logger
 
 from app.config import Settings
@@ -67,7 +67,7 @@ class GeminiLLMAdapter(LLMPort):
         retry_base_delay: float = 35.0,
     ) -> None:
         settings = Settings()
-        genai.configure(api_key=settings.GOOGLE_API_KEY)
+        self._client = genai.Client(api_key=settings.GOOGLE_API_KEY)
         
         self._model_name = model_name
         self._max_context_tokens = max_context_tokens
@@ -76,20 +76,14 @@ class GeminiLLMAdapter(LLMPort):
         self._retry_base_delay = retry_base_delay
         self._limiter = TokenLimiter(max_context_tokens)
         
-        self._model = genai.GenerativeModel(
-            model_name=model_name,
+        self._eval_config = types.GenerateContentConfig(
             system_instruction=_SYSTEM_PROMPT,
-            generation_config=genai.GenerationConfig(
-                temperature=temperature,
-                response_mime_type="application/json",
-            ),
+            temperature=temperature,
+            response_mime_type="application/json",
         )
-        self._summary_model = genai.GenerativeModel(
-            model_name=model_name,
+        self._summary_config = types.GenerateContentConfig(
             system_instruction=_SUMMARY_SYSTEM_PROMPT,
-            generation_config=genai.GenerationConfig(
-                temperature=0.3,
-            ),
+            temperature=0.3,
         )
 
     # LLMPort interface
@@ -117,7 +111,7 @@ class GeminiLLMAdapter(LLMPort):
         )
 
         try:
-            raw_text = self._call_with_retry(self._model, prompt)
+            raw_text = self._call_with_retry(self._eval_config, prompt)
             tokens_used = self._estimate_tokens(prompt + raw_text)
 
             evaluation = self._parse_response(raw_text)
@@ -145,21 +139,27 @@ class GeminiLLMAdapter(LLMPort):
         prompt = self._build_summary_prompt(evaluations, repository_url)
 
         try:
-            return self._call_with_retry(self._summary_model, prompt)
+            return self._call_with_retry(self._summary_config, prompt)
         except Exception as e:
             logger.error(f"Gemini summary generation failed: {e}")
             return self._fallback_summary(evaluations)
 
     # Retry logic
 
-    def _call_with_retry(self, model, prompt: str) -> str:
+    def _call_with_retry(self, config: types.GenerateContentConfig, prompt: str) -> str:
         """Call a Gemini model with exponential backoff on 429 errors."""
         last_exc = None
         for attempt in range(self._max_retries + 1):
             try:
-                response = model.generate_content(prompt)
+                response = self._client.models.generate_content(
+                    model=self._model_name,
+                    contents=prompt,
+                    config=config,
+                )
                 return response.text.strip()
-            except ResourceExhausted as exc:
+            except errors.ClientError as exc:
+                if exc.code != 429:
+                    raise
                 last_exc = exc
                 if attempt < self._max_retries:
                     delay = self._retry_base_delay * (2 ** attempt)
