@@ -144,9 +144,20 @@ async def get_task(task_id: str, request: Request):
 # WebSocket: real-time task updates for authenticated users
 
 @router.websocket("/ws/tasks")
-async def ws_tasks(websocket: WebSocket, token: str = ""):
-    """Authenticate via query parameter `?token=xxx` and push
-    task progress / completion events to the connected client."""
+async def ws_tasks(websocket: WebSocket):
+    """Authenticate via first message `{"token": "xxx"}` and push
+    task progress / completion events to the connected client.
+    """
+    await websocket.accept()
+
+    try:
+        auth_text = await websocket.receive_text()
+        auth_data = json.loads(auth_text)
+        token = auth_data.get("token", "")
+    except Exception:
+        await websocket.close(code=4001, reason="Invalid auth message")
+        return
+
     if not token:
         await websocket.close(code=4001, reason="Missing token")
         return
