@@ -46,6 +46,17 @@ CREATE TABLE IF NOT EXISTS tasks (
 CREATE INDEX IF NOT EXISTS idx_tasks_user ON tasks (user_id);
 CREATE INDEX IF NOT EXISTS idx_tasks_status ON tasks (status);
 
+-- Users explicitly authorized to view a specific task
+-- (owner access is checked separately; this table handles shared access)
+CREATE TABLE IF NOT EXISTS task_viewers (
+    task_id    UUID NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+    user_id    UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    granted_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    PRIMARY KEY (task_id, user_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_task_viewers_user ON task_viewers (user_id);
+
 -- Indexed repositories cache (vector store collections)
 CREATE TABLE IF NOT EXISTS indexed_repositories (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),

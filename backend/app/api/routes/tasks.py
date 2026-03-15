@@ -1,6 +1,6 @@
 import json
 
-from fastapi import APIRouter, Depends, HTTPException, Request, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, Depends, Header, HTTPException, Request, WebSocket, WebSocketDisconnect
 
 from app.api.dependencies import get_current_user
 from app.api.schemas import (
@@ -105,18 +105,26 @@ async def list_tasks(
     ]
 
 
-# Public: get task detail (also needed for anonymous tasks)
-
 @router.get(
     "/tasks/{task_id}",
     summary="Get task status and result",
     response_model=TaskDetailResponse,
 )
-async def get_task(task_id: str, request: Request):
+async def get_task(
+    task_id: str,
+    request: Request,
+    authorization: str | None = Header(default=None),
+):
     db = request.app.state.database
     task = db.get_task(task_id)
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
+
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Authentication required")
+    user = db.get_user_by_token(authorization[7:])
+    if not user or not db.can_view_task(task_id, str(user["id"])):
+        raise HTTPException(status_code=403, detail="Access forbidden")
 
     result = _parse_task_result(task.get("result"))
     rules = task["rules"]

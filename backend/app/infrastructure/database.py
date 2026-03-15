@@ -201,6 +201,24 @@ class Database:
         finally:
             conn.close()
 
+    def can_view_task(self, task_id: str, user_id: str) -> bool:
+        """Return True if user_id is the owner or an authorized viewer."""
+        conn = self._conn()
+        try:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """SELECT 1 FROM tasks
+                       WHERE id = %s AND user_id = %s
+                       UNION ALL
+                       SELECT 1 FROM task_viewers
+                       WHERE task_id = %s AND user_id = %s
+                       LIMIT 1""",
+                    (task_id, user_id, task_id, user_id),
+                )
+                return cur.fetchone() is not None
+        finally:
+            conn.close()
+
     def get_user_tasks(
         self, user_id: str, limit: int = 50,
     ) -> List[Dict[str, Any]]:
