@@ -39,9 +39,15 @@ MAX_FILE_SIZE = 1_000_000  # 1 MB
 class GitRepositoryAdapter(RepositoryPort):
     """Git repository adapter for cloning and loading source files."""
 
+    @staticmethod
+    def _safe_url(url: str) -> str:
+        """Strip credentials from a URL before logging or surfacing in errors."""
+        return url.split("@")[-1] if "@" in url else url
+
     def clone(self, url: str) -> Path:
         tmp_dir = tempfile.mkdtemp(prefix="tfg_repo_")
-        logger.info(f"Cloning {url} into {tmp_dir}...")
+        safe = self._safe_url(url)
+        logger.info(f"Cloning {safe} into {tmp_dir}...")
         try:
             Repo.clone_from(url, tmp_dir, depth=1)
         except GitCommandError as e:
@@ -52,7 +58,7 @@ class GitRepositoryAdapter(RepositoryPort):
                 or "Authentication" in stderr
             ):
                 raise RuntimeError(
-                    f"Cannot clone repository: {url}. "
+                    f"Cannot clone repository: {safe}. "
                     "Check the URL and ensure the repo is public."
                 ) from e
             if (
@@ -60,10 +66,10 @@ class GitRepositoryAdapter(RepositoryPort):
                 or "does not exist" in stderr.lower()
             ):
                 raise RuntimeError(
-                    f"Repository not found: {url}. Check the URL."
+                    f"Repository not found: {safe}. Check the URL."
                 ) from e
             raise RuntimeError(
-                f"Error cloning {url}: {stderr or str(e)}"
+                f"Error cloning {safe}: {stderr or str(e)}"
             ) from e
         logger.info(f"Clone complete: {tmp_dir}")
         return Path(tmp_dir)

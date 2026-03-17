@@ -72,7 +72,8 @@ class TaskWorker:
             if git_token and repo_url.startswith("https://"):
                 repo_url = repo_url.replace("https://", f"https://{git_token}@", 1)
 
-        logger.info(f"Processing task {task_id} for {repo_url}")
+        safe_url = repo_url.split("@")[-1] if "@" in repo_url else repo_url
+        logger.info(f"Processing task {task_id} for {safe_url}")
 
         def on_progress(pct: int, msg: str) -> None:
             self._db.update_task_progress(task_id, pct, msg)
