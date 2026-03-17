@@ -7,6 +7,7 @@ CREATE TABLE IF NOT EXISTS users (
     github_login TEXT NOT NULL,
     avatar_url TEXT DEFAULT '',
     access_token TEXT NOT NULL,
+    git_token TEXT,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     last_login_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );

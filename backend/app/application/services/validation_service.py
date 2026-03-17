@@ -69,6 +69,13 @@ class ValidationService:
                 f"{len(current_hashes)} unique files"
             )
 
+            if not current_hashes:
+                raise ValueError(
+                    "The repository contains no indexable source files. "
+                    "Make sure the repository is not empty and contains "
+                    "supported code files."
+                )
+
             # 4. Stored hashes
             stored_hashes = self._c.database.get_file_hashes(
                 repository_url, model_name, strategy_name,

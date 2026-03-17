@@ -147,9 +147,14 @@ class GeminiLLMAdapter(LLMPort):
     # Retry logic
 
     def _call_with_retry(self, config: types.GenerateContentConfig, prompt: str) -> str:
-        """Call a Gemini model with exponential backoff on 429 errors."""
+        """Call a Gemini model with exponential backoff on 429 and 5xx errors."""
+        _SERVER_ERROR_MAX_RETRIES = 2
+
+        rate_limit_attempts = 0
+        server_error_attempts = 0
         last_exc = None
-        for attempt in range(self._max_retries + 1):
+
+        while True:
             try:
                 response = self._client.models.generate_content(
                     model=self._model_name,
@@ -158,25 +163,37 @@ class GeminiLLMAdapter(LLMPort):
                 )
                 return response.text.strip()
             except errors.ClientError as exc:
-                if exc.code != 429:
-                    raise
                 last_exc = exc
-                if attempt < self._max_retries:
-                    delay = self._retry_base_delay * (2 ** attempt)
+                if exc.code == 429:
+                    if rate_limit_attempts >= self._max_retries:
+                        logger.error(
+                            f"Gemini 429 rate-limit: all {self._max_retries + 1} "
+                            f"attempts exhausted."
+                        )
+                        raise
+                    delay = self._retry_base_delay * (2 ** rate_limit_attempts)
+                    rate_limit_attempts += 1
                     logger.warning(
-                        f"Gemini 429 rate-limit (attempt {attempt + 1}/"
-                        f"{self._max_retries + 1}). "
-                        f"Retrying in {delay:.0f}s..."
+                        f"Gemini 429 rate-limit (attempt {rate_limit_attempts}/"
+                        f"{self._max_retries + 1}). Retrying in {delay:.0f}s..."
+                    )
+                    time.sleep(delay)
+                elif exc.code in (500, 503):
+                    if server_error_attempts >= _SERVER_ERROR_MAX_RETRIES:
+                        logger.error(
+                            f"Gemini {exc.code} server error: all "
+                            f"{_SERVER_ERROR_MAX_RETRIES + 1} attempts exhausted."
+                        )
+                        raise
+                    delay = 5.0 * (2 ** server_error_attempts)
+                    server_error_attempts += 1
+                    logger.warning(
+                        f"Gemini {exc.code} server error (attempt {server_error_attempts}/"
+                        f"{_SERVER_ERROR_MAX_RETRIES + 1}). Retrying in {delay:.0f}s..."
                     )
                     time.sleep(delay)
                 else:
-                    logger.error(
-                        f"Gemini 429 rate-limit: all {self._max_retries + 1} "
-                        f"attempts exhausted."
-                    )
-        if last_exc:
-            raise last_exc
-        return ""
+                    raise
 
     # Prompt builders
 

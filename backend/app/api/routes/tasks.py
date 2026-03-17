@@ -1,6 +1,7 @@
 import json
 
-from fastapi import APIRouter, Depends, Header, HTTPException, Request, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, Depends, Header, HTTPException, Request, WebSocket
+from loguru import logger  # DEBUG
 
 from app.api.dependencies import get_current_user
 from app.api.schemas import (
@@ -115,15 +116,24 @@ async def get_task(
     request: Request,
     authorization: str | None = Header(default=None),
 ):
+    # DEBUG
+    logger.debug(f"[DEBUG] get_task called: task_id={task_id}, authorization present={authorization is not None}, authorization value={repr(authorization[:30]) if authorization else None}")
+
     db = request.app.state.database
     task = db.get_task(task_id)
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
 
     if not authorization or not authorization.startswith("Bearer "):
+        # DEBUG
+        logger.debug(f"[DEBUG] get_task 401: authorization header missing or malformed. Raw value: {repr(authorization)}")
         raise HTTPException(status_code=401, detail="Authentication required")
     user = db.get_user_by_token(authorization[7:])
+    # DEBUG
+    logger.debug(f"[DEBUG] get_task token lookup: user found={user is not None}")
     if not user or not db.can_view_task(task_id, str(user["id"])):
+        # DEBUG
+        logger.debug(f"[DEBUG] get_task 403: user={user}, can_view={db.can_view_task(task_id, str(user['id'])) if user else 'N/A'}")
         raise HTTPException(status_code=403, detail="Access forbidden")
 
     result = _parse_task_result(task.get("result"))
@@ -157,22 +167,34 @@ async def ws_tasks(websocket: WebSocket):
     task progress / completion events to the connected client.
     """
     await websocket.accept()
+    # DEBUG
+    logger.debug(f"[DEBUG] ws_tasks accepted connection from {websocket.client}")
 
     try:
         auth_text = await websocket.receive_text()
         auth_data = json.loads(auth_text)
         token = auth_data.get("token", "")
-    except Exception:
+        # DEBUG
+        logger.debug(f"[DEBUG] ws_tasks received auth message: keys={list(auth_data.keys())}, token present={bool(token)}")
+    except Exception as e:
+        # DEBUG
+        logger.debug(f"[DEBUG] ws_tasks auth message error: {type(e).__name__}: {e}")
         await websocket.close(code=4001, reason="Invalid auth message")
         return
 
     if not token:
+        # DEBUG
+        logger.debug(f"[DEBUG] ws_tasks closing: token missing in auth message")
         await websocket.close(code=4001, reason="Missing token")
         return
 
     db = websocket.app.state.database
     user = db.get_user_by_token(token)
+    # DEBUG
+    logger.debug(f"[DEBUG] ws_tasks token lookup: user found={user is not None}")
     if not user:
+        # DEBUG
+        logger.debug(f"[DEBUG] ws_tasks closing: token not found in DB")
         await websocket.close(code=4001, reason="Invalid token")
         return
 
@@ -181,10 +203,10 @@ async def ws_tasks(websocket: WebSocket):
     await ws_manager.connect(websocket, user_id)
 
     try:
-        # Keep alive -- the server pushes events, client only pings
+        # Keep alive -- client sends periodic pings, server pushes events
         while True:
             await websocket.receive_text()
-    except WebSocketDisconnect:
+    except Exception:
         ws_manager.disconnect(websocket, user_id)
 
 

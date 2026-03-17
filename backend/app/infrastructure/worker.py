@@ -66,6 +66,12 @@ class TaskWorker:
         repo_url = task["repository_url"]
         rules = task["rules"] if isinstance(task["rules"], list) else []
 
+        if user_id:
+            user = self._db.get_user_by_id(user_id)
+            git_token = user.get("git_token") if user else None
+            if git_token and repo_url.startswith("https://"):
+                repo_url = repo_url.replace("https://", f"https://{git_token}@", 1)
+
         logger.info(f"Processing task {task_id} for {repo_url}")
 
         def on_progress(pct: int, msg: str) -> None:

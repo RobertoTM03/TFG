@@ -54,15 +54,16 @@ class Database:
             ) as cur:
                 cur.execute(
                     """INSERT INTO users
-                           (github_id, github_login, avatar_url, access_token)
-                       VALUES (%s, %s, %s, %s)
+                           (github_id, github_login, avatar_url, access_token, git_token)
+                       VALUES (%s, %s, %s, %s, %s)
                        ON CONFLICT (github_id) DO UPDATE SET
                            github_login = EXCLUDED.github_login,
                            avatar_url   = EXCLUDED.avatar_url,
                            access_token = EXCLUDED.access_token,
+                           git_token    = COALESCE(users.git_token, EXCLUDED.git_token),
                            last_login_at = NOW()
                        RETURNING *""",
-                    (github_id, github_login, avatar_url, access_token),
+                    (github_id, github_login, avatar_url, access_token, access_token),
                 )
                 row = cur.fetchone()
             conn.commit()
@@ -78,6 +79,20 @@ class Database:
             ) as cur:
                 cur.execute(
                     "SELECT * FROM users WHERE access_token = %s", (token,),
+                )
+                row = cur.fetchone()
+            return dict(row) if row else None
+        finally:
+            conn.close()
+
+    def get_user_by_id(self, user_id: str) -> Optional[Dict[str, Any]]:
+        conn = self._conn()
+        try:
+            with conn.cursor(
+                cursor_factory=psycopg2.extras.RealDictCursor,
+            ) as cur:
+                cur.execute(
+                    "SELECT * FROM users WHERE id = %s", (user_id,),
                 )
                 row = cur.fetchone()
             return dict(row) if row else None
