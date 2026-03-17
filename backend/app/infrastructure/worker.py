@@ -90,8 +90,13 @@ class TaskWorker:
                 ValidationService,
             )
 
+            enable_cross_check = bool(task.get("enable_cross_check", False))
             service = ValidationService(self._container, self._settings)
-            result = service.validate(repo_url, rules, on_progress=on_progress)
+            result = service.validate(
+                repo_url, rules,
+                on_progress=on_progress,
+                enable_cross_check=enable_cross_check,
+            )
 
             result_json = self._serialize_result(result)
             self._db.complete_task(task_id, result_json)
@@ -148,6 +153,7 @@ class TaskWorker:
                         }
                         for f in v.related_files
                     ],
+                    "match_count": len(v.related_files),
                     "evaluation": {
                         "verdict": v.evaluation.verdict,
                         "confidence": v.evaluation.confidence,
@@ -156,6 +162,16 @@ class TaskWorker:
                         "llm_provider": v.evaluation.llm_provider,
                         "tokens_used": v.evaluation.tokens_used,
                     } if v.evaluation else None,
+                    "cross_check": {
+                        "primary_verdict": v.cross_check.primary.verdict,
+                        "primary_confidence": v.cross_check.primary.confidence,
+                        "primary_model": v.cross_check.primary.llm_provider,
+                        "secondary_verdict": v.cross_check.secondary.verdict,
+                        "secondary_confidence": v.cross_check.secondary.confidence,
+                        "secondary_model": v.cross_check.secondary.llm_provider,
+                        "strategy_used": v.cross_check.strategy_used,
+                        "agreement": v.cross_check.agreement,
+                    } if v.cross_check else None,
                 }
                 for v in result.validations
             ],

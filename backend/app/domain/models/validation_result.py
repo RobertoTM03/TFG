@@ -2,6 +2,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import List, Optional
 
+from app.domain.models.cross_check import CrossCheckedEvaluation
 from app.domain.models.evaluation import RuleEvaluation
 
 
@@ -24,6 +25,7 @@ class RuleValidation:
     rule: str
     related_files: List[FileMatch] = field(default_factory=list)
     evaluation: Optional[RuleEvaluation] = None
+    cross_check: Optional[CrossCheckedEvaluation] = None
 
 
 @dataclass

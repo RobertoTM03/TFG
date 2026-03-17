@@ -77,11 +77,25 @@ class RuleEvaluationResponse(BaseModel):
     tokens_used: int = 0
 
 
+class CrossCheckResponse(BaseModel):
+    """Metadata produced when a rule is evaluated by two models independently."""
+
+    primary_verdict: str
+    primary_confidence: float
+    primary_model: str
+    secondary_verdict: str
+    secondary_confidence: float
+    secondary_model: str
+    strategy_used: str  # "consensus" | "confidence" | "conservative"
+    agreement: bool
+
+
 class RuleValidationResponse(BaseModel):
     rule: str
     related_files: List[FileMatchResponse]
     match_count: int
     evaluation: Optional[RuleEvaluationResponse] = None
+    cross_check: Optional[CrossCheckResponse] = None
 
 
 class TaskResultResponse(BaseModel):

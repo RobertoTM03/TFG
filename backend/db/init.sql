@@ -39,6 +39,7 @@ CREATE TABLE IF NOT EXISTS tasks (
     progress_message TEXT DEFAULT '',
     result JSONB,
     error TEXT,
+    enable_cross_check BOOLEAN NOT NULL DEFAULT FALSE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     started_at TIMESTAMP WITH TIME ZONE,
     completed_at TIMESTAMP WITH TIME ZONE

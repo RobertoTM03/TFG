@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, Header, HTTPException, Request, WebSocke
 
 from app.api.dependencies import get_current_user
 from app.api.schemas import (
+    CrossCheckResponse,
     FileMatchResponse,
     RuleEvaluationResponse,
     RuleValidationResponse,
@@ -11,34 +12,9 @@ from app.api.schemas import (
     TaskDetailResponse,
     TaskResultResponse,
     TaskSummaryResponse,
-    ValidateRequest,
 )
 
 router = APIRouter(tags=["Tasks"])
-
-
-# Public: anonymous validation task (for direct API testing)
-
-@router.post(
-    "/validate",
-    status_code=202,
-    summary="Create anonymous validation task",
-    response_model=TaskCreatedResponse,
-)
-async def validate_anonymous(body: ValidateRequest, request: Request):
-    """Create a background validation task without authentication."""
-    db = request.app.state.database
-    # Derive a short repo name from the URL
-    repo_name = body.repository_url.rstrip("/").split("/")[-1]
-    repo_name = repo_name.replace(".git", "")
-
-    task = db.create_task(
-        repository_url=body.repository_url,
-        repository_full_name=repo_name,
-        rules=body.rules,
-        user_id=None,
-    )
-    return TaskCreatedResponse(task_id=str(task["id"]))
 
 
 # Authenticated: start validation with rules from the database
@@ -53,6 +29,7 @@ async def validate_repo(
     owner: str,
     repo: str,
     request: Request,
+    cross_check: bool = True,
     user: dict = Depends(get_current_user),
 ):
     """Read the user's rules for this repository and launch a
@@ -75,6 +52,7 @@ async def validate_repo(
         repository_full_name=full_name,
         rules=rule_texts,
         user_id=str(user["id"]),
+        enable_cross_check=cross_check,
     )
     return TaskCreatedResponse(task_id=str(task["id"]))
 
@@ -209,6 +187,11 @@ def _parse_task_result(raw) -> TaskResultResponse | None:
                 evaluation=(
                     RuleEvaluationResponse(**v["evaluation"])
                     if v.get("evaluation")
+                    else None
+                ),
+                cross_check=(
+                    CrossCheckResponse(**v["cross_check"])
+                    if v.get("cross_check")
                     else None
                 ),
             )

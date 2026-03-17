@@ -28,6 +28,24 @@ class Database:
     def _conn(self):
         return psycopg2.connect(**self._conn_params)
 
+    def apply_migrations(self) -> None:
+        """Run idempotent schema migrations for existing databases."""
+        migrations = [
+            "ALTER TABLE tasks ADD COLUMN IF NOT EXISTS enable_cross_check BOOLEAN NOT NULL DEFAULT FALSE",
+        ]
+        conn = self._conn()
+        try:
+            with conn.cursor() as cur:
+                for sql in migrations:
+                    cur.execute(sql)
+            conn.commit()
+            logger.info("Database migrations applied")
+        except Exception as exc:
+            logger.error(f"Migration failed: {exc}")
+            raise
+        finally:
+            conn.close()
+
     def check_health(self) -> bool:
         try:
             conn = self._conn()
@@ -183,6 +201,7 @@ class Database:
         repository_full_name: str,
         rules: List[str],
         user_id: Optional[str] = None,
+        enable_cross_check: bool = False,
     ) -> Dict[str, Any]:
         conn = self._conn()
         try:
@@ -192,11 +211,11 @@ class Database:
                 cur.execute(
                     """INSERT INTO tasks
                            (user_id, repository_url, repository_full_name,
-                            rules, status)
-                       VALUES (%s, %s, %s, %s, 'pending')
+                            rules, status, enable_cross_check)
+                       VALUES (%s, %s, %s, %s, 'pending', %s)
                        RETURNING *""",
                     (user_id, repository_url, repository_full_name,
-                     json.dumps(rules)),
+                     json.dumps(rules), enable_cross_check),
                 )
                 row = cur.fetchone()
             conn.commit()

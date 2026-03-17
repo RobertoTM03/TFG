@@ -37,6 +37,7 @@ class ValidationService:
         repository_url: str,
         rules: List[str],
         on_progress: ProgressCallback = None,
+        enable_cross_check: Optional[bool] = None,
     ) -> ValidationResult:
         """Run the full validation pipeline with incremental indexing."""
 
@@ -215,42 +216,94 @@ class ValidationService:
                 )
 
             # 9. LLM evaluation -- one rule at a time
-            _report(80, "Evaluating rules with LLM...")
-            llm = self._c.llm
-            for idx, validation in enumerate(validations):
-                pct = 80 + int((idx / max(len(validations), 1)) * 14)
-                _report(
-                    pct,
-                    f"LLM evaluating rule {idx + 1}/{len(validations)}...",
-                )
-                logger.info(
-                    f"LLM evaluating rule {idx + 1}: "
-                    f"{validation.rule[:80]}..."
-                )
+            cross_check_active = (
+                enable_cross_check
+                if enable_cross_check is not None
+                else self._settings.ENABLE_CROSS_CHECK
+            )
+            if cross_check_active:
+                _report(80, "Evaluating rules with cross-check (dual-model)...")
+                llm_primary = self._c.llm_primary
+                llm_secondary = self._c.llm_secondary
+                cross_check_service = self._c.cross_check_service
+                for idx, validation in enumerate(validations):
+                    pct = 80 + int((idx / max(len(validations), 1)) * 14)
+                    _report(
+                        pct,
+                        f"Cross-checking rule {idx + 1}/{len(validations)}...",
+                    )
+                    logger.info(
+                        f"Cross-checking rule {idx + 1}: "
+                        f"{validation.rule[:80]}..."
+                    )
 
-                # Build file contents list for the LLM
-                file_contents = [
-                    fm.file_content for fm in validation.related_files
-                ]
+                    file_contents = [
+                        fm.file_content for fm in validation.related_files
+                    ]
+                    eval_kwargs = dict(
+                        rule=validation.rule,
+                        repomap=repomap,
+                        file_contents=file_contents,
+                        repository_url=repository_url,
+                    )
 
-                evaluation = llm.evaluate_rule(
-                    rule=validation.rule,
-                    repomap=repomap,
-                    file_contents=file_contents,
-                    repository_url=repository_url,
-                )
-                validation.evaluation = evaluation
-                logger.info(
-                    f"  -> verdict={evaluation.verdict} "
-                    f"confidence={evaluation.confidence:.0%}"
-                )
+                    primary_eval = llm_primary.evaluate_rule(**eval_kwargs)
+                    secondary_eval = llm_secondary.evaluate_rule(**eval_kwargs)
+
+                    cross_checked = cross_check_service.reconcile(
+                        primary_eval, secondary_eval,
+                    )
+                    validation.evaluation = cross_checked.final
+                    validation.cross_check = cross_checked
+                    logger.info(
+                        f"  -> strategy={cross_checked.strategy_used} "
+                        f"agreement={cross_checked.agreement} "
+                        f"verdict={cross_checked.final.verdict} "
+                        f"confidence={cross_checked.final.confidence:.0%}"
+                    )
+
+                llm_for_summary = llm_primary
+                result_llm_model = llm_primary.name
+
+            else:
+                _report(80, "Evaluating rules with LLM...")
+                llm = self._c.llm
+                for idx, validation in enumerate(validations):
+                    pct = 80 + int((idx / max(len(validations), 1)) * 14)
+                    _report(
+                        pct,
+                        f"LLM evaluating rule {idx + 1}/{len(validations)}...",
+                    )
+                    logger.info(
+                        f"LLM evaluating rule {idx + 1}: "
+                        f"{validation.rule[:80]}..."
+                    )
+
+                    file_contents = [
+                        fm.file_content for fm in validation.related_files
+                    ]
+
+                    evaluation = llm.evaluate_rule(
+                        rule=validation.rule,
+                        repomap=repomap,
+                        file_contents=file_contents,
+                        repository_url=repository_url,
+                    )
+                    validation.evaluation = evaluation
+                    logger.info(
+                        f"  -> verdict={evaluation.verdict} "
+                        f"confidence={evaluation.confidence:.0%}"
+                    )
+
+                llm_for_summary = llm
+                result_llm_model = llm.name
 
             # 10. Generate summary
             _report(95, "Generating summary...")
             all_evaluations = [
                 v.evaluation for v in validations if v.evaluation
             ]
-            summary = llm.generate_summary(
+            summary = llm_for_summary.generate_summary(
                 all_evaluations, repository_url,
             )
 
@@ -265,7 +318,7 @@ class ValidationService:
                 summary=summary,
                 embedding_model=model_name,
                 chunking_strategy=strategy_name,
-                llm_model=llm.name,
+                llm_model=result_llm_model,
             )
 
             _report(100, "Done")

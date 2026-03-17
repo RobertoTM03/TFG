@@ -1,3 +1,4 @@
+from app.application.services.cross_check_service import CrossCheckService
 from app.config import Settings
 from app.domain.ports import (
     ChunkingPort,
@@ -46,6 +47,9 @@ class Container:
         self._repository: RepositoryPort | None = None
         self._repomap: RepomapPort | None = None
         self._llm: LLMPort | None = None
+        self._llm_primary: LLMPort | None = None
+        self._llm_secondary: LLMPort | None = None
+        self._cross_check_service: CrossCheckService | None = None
         self._database: Database | None = None
 
     # Embedding
@@ -129,6 +133,42 @@ class Container:
                 retry_base_delay=self._settings.LLM_RETRY_BASE_DELAY,
             )
         return self._llm
+
+    # Primary LLM (used when ENABLE_CROSS_CHECK=True)
+
+    @property
+    def llm_primary(self) -> LLMPort:
+        if self._llm_primary is None:
+            self._llm_primary = GeminiLLMAdapter(
+                model_name=self._settings.LLM_PRIMARY_MODEL,
+                max_context_tokens=self._settings.LLM_MAX_CONTEXT_TOKENS,
+                temperature=self._settings.LLM_TEMPERATURE,
+                max_retries=self._settings.LLM_MAX_RETRIES,
+                retry_base_delay=self._settings.LLM_RETRY_BASE_DELAY,
+            )
+        return self._llm_primary
+
+    # Secondary LLM (used when ENABLE_CROSS_CHECK=True)
+
+    @property
+    def llm_secondary(self) -> LLMPort:
+        if self._llm_secondary is None:
+            self._llm_secondary = GeminiLLMAdapter(
+                model_name=self._settings.LLM_SECONDARY_MODEL,
+                max_context_tokens=self._settings.LLM_MAX_CONTEXT_TOKENS,
+                temperature=self._settings.LLM_TEMPERATURE,
+                max_retries=self._settings.LLM_MAX_RETRIES,
+                retry_base_delay=self._settings.LLM_RETRY_BASE_DELAY,
+            )
+        return self._llm_secondary
+
+    # Cross-Check Service
+
+    @property
+    def cross_check_service(self) -> CrossCheckService:
+        if self._cross_check_service is None:
+            self._cross_check_service = CrossCheckService()
+        return self._cross_check_service
 
     # Database
 

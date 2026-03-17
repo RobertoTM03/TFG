@@ -50,6 +50,11 @@ class Settings(BaseSettings):
     LLM_MAX_RETRIES: int = 3
     LLM_RETRY_BASE_DELAY: float = 35.0
 
+    # Cross-Check (dual-model consensus evaluation)
+    ENABLE_CROSS_CHECK: bool = True
+    LLM_PRIMARY_MODEL: str = "gemini-2.5-flash"   # gemini-2.5-flash | gemini-2.5-pro | gemini-2.0-flash | gemini-3.1-flash-lite-preview
+    LLM_SECONDARY_MODEL: str = "gemini-2.0-flash"  # gemini-2.5-flash | gemini-2.5-pro | gemini-2.0-flash | gemini-3.1-flash-lite-preview
+
     # Background Worker
     WORKER_POLL_INTERVAL: int = 2
 
