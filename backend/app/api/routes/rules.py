@@ -49,11 +49,12 @@ async def create_rule(
     db = request.app.state.database
     full_name = f"{owner}/{repo}"
 
+    settings = request.app.state.settings
     count = db.count_rules(str(user["id"]), full_name)
-    if count >= 10:
+    if count >= settings.MAX_RULES_PER_REPO:
         raise HTTPException(
             status_code=400,
-            detail="Maximum of 10 rules per repository reached",
+            detail=f"Maximum of {settings.MAX_RULES_PER_REPO} rules per repository reached",
         )
 
     rule = db.create_rule(str(user["id"]), full_name, body.rule_text)

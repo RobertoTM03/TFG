@@ -33,6 +33,9 @@ class Settings(BaseSettings):
     API_HOST: str = "0.0.0.0"
     API_PORT: int = 8080
 
+    # Rules
+    MAX_RULES_PER_REPO: int = 10
+
     # Similarity Search
     SIMILARITY_THRESHOLD: float = 0.3
     MAX_RESULTS: int = 5

@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 # Requests
 
@@ -19,9 +19,18 @@ class ValidateRequest(BaseModel):
         ..., description="URL of the Git repository",
     )
     rules: List[str] = Field(
-        ..., min_length=1, max_length=10,
-        description="Rules to evaluate (1-10)",
+        ..., min_length=1,
+        description="Rules to evaluate (1-MAX_RULES_PER_REPO)",
     )
+
+    @field_validator("rules")
+    @classmethod
+    def check_max_rules(cls, v: List[str]) -> List[str]:
+        from app.infrastructure.container import get_settings
+        max_rules = get_settings().MAX_RULES_PER_REPO
+        if len(v) > max_rules:
+            raise ValueError(f"Too many rules: maximum is {max_rules}")
+        return v
 
 
 class CreateRuleRequest(BaseModel):
