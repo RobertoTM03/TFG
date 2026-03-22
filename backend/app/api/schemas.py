@@ -5,14 +5,6 @@ from pydantic import BaseModel, Field
 
 # Requests
 
-class RepomapRequest(BaseModel):
-    """Body for POST /repomap."""
-    repository_url: str = Field(
-        ..., description="URL of the Git repository",
-        json_schema_extra={"examples": ["https://github.com/user/repo"]},
-    )
-
-
 class CreateRuleRequest(BaseModel):
     """Body for POST /api/repos/{owner}/{repo}/rules."""
     rule_text: str = Field(
@@ -128,6 +120,3 @@ class HealthResponse(BaseModel):
     config: Dict[str, str]
 
 
-class RepomapResponse(BaseModel):
-    repository_url: str
-    repomap: str
