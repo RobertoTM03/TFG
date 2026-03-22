@@ -1,42 +1,59 @@
-import httpx
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request
 
 from app.api.dependencies import get_current_user
 
 router = APIRouter(prefix="/api", tags=["Repositories"])
 
 
-@router.get("/repos", summary="List user repositories from GitHub")
-async def list_repos(user: dict = Depends(get_current_user)):
-    """Return the authenticated user's GitHub repositories sorted by
-    most recently updated."""
-    async with httpx.AsyncClient() as client:
-        resp = await client.get(
-            "https://api.github.com/user/repos",
-            headers={
-                "Authorization": f"Bearer {user['access_token']}",
-                "Accept": "application/vnd.github.v3+json",
-            },
-            params={
-                "per_page": 100,
-                "sort": "updated",
-                "type": "all",
-            },
-        )
-        resp.raise_for_status()
-        repos = resp.json()
+@router.get("/app-info", summary="GitHub App public metadata")
+async def app_info(request: Request):
+    """Returns public GitHub App info (slug) so the frontend can build install URLs."""
+    settings = request.app.state.settings
+    return {"app_slug": settings.GITHUB_APP_SLUG}
 
+
+@router.get("/repos", summary="List repositories where the GitHub App is installed")
+async def list_repos(
+    request: Request,
+    user: dict = Depends(get_current_user),
+):
+    """Return all repos accessible through the user's GitHub App installations."""
+    github_app = request.app.state.container.github_app
+    user_token = request.headers.get("Authorization", "")[7:]
+
+    installations = github_app.get_user_installations(user_token)
+    repos = []
+    for inst in installations:
+        inst_repos = github_app.get_installation_repos(user_token, inst.installation_id)
+        for r in inst_repos:
+            repos.append({
+                "installation_id": r.installation_id,
+                "full_name": r.full_name,
+                "name": r.name,
+                "private": r.private,
+                "description": r.description,
+                "language": r.language,
+                "stargazers_count": r.stargazers_count,
+                "clone_url": r.clone_url,
+                "html_url": r.html_url,
+            })
+
+    return repos
+
+
+@router.get("/installations", summary="List the user's GitHub App installations")
+async def list_installations(
+    request: Request,
+    user: dict = Depends(get_current_user),
+):
+    """Return all GitHub App installations the user can access."""
+    github_app = request.app.state.container.github_app
+    installations = github_app.get_user_installations(request.headers.get("Authorization", "")[7:])
     return [
         {
-            "full_name": r["full_name"],
-            "name": r["name"],
-            "description": r.get("description"),
-            "language": r.get("language"),
-            "private": r["private"],
-            "stargazers_count": r.get("stargazers_count", 0),
-            "updated_at": r.get("updated_at"),
-            "clone_url": r["clone_url"],
-            "html_url": r["html_url"],
+            "installation_id": i.installation_id,
+            "account_login": i.account_login,
+            "account_type": i.account_type,
         }
-        for r in repos
+        for i in installations
     ]

@@ -3,6 +3,7 @@ from app.config import Settings
 from app.domain.ports import (
     ChunkingPort,
     EmbeddingPort,
+    GitHubAppPort,
     LLMPort,
     RepomapPort,
     RepositoryPort,
@@ -16,6 +17,7 @@ from app.infrastructure.adapters.chroma_store import ChromaVectorStoreAdapter
 from app.infrastructure.adapters.git_repository import GitRepositoryAdapter
 from app.infrastructure.adapters.tree_sitter_repomap import TreeSitterRepomapAdapter
 from app.infrastructure.adapters.gemini_llm import GeminiLLMAdapter
+from app.infrastructure.adapters.github_app_adapter import GitHubAppAdapter
 from app.infrastructure.rate_limiter import RateLimitedEmbeddings
 from app.infrastructure.database import Database
 
@@ -46,6 +48,7 @@ class Container:
         self._vector_store: VectorStorePort | None = None
         self._repository: RepositoryPort | None = None
         self._repomap: RepomapPort | None = None
+        self._github_app: GitHubAppPort | None = None
         self._llm: LLMPort | None = None
         self._llm_primary: LLMPort | None = None
         self._llm_secondary: LLMPort | None = None
@@ -169,6 +172,28 @@ class Container:
         if self._cross_check_service is None:
             self._cross_check_service = CrossCheckService()
         return self._cross_check_service
+
+    # GitHub App
+
+    @property
+    def github_app(self) -> GitHubAppPort:
+        if self._github_app is None:
+            key_path = self._settings.GITHUB_APP_PRIVATE_KEY_PATH
+            private_key = ""
+            if key_path:
+                try:
+                    with open(key_path) as f:
+                        private_key = f.read()
+                except Exception as exc:
+                    raise RuntimeError(
+                        f"Cannot read GitHub App private key from '{key_path}': {exc}"
+                    )
+            self._github_app = GitHubAppAdapter(
+                app_id=self._settings.GITHUB_APP_ID,
+                private_key_pem=private_key,
+                webhook_secret=self._settings.GITHUB_WEBHOOK_SECRET,
+            )
+        return self._github_app
 
     # Database
 

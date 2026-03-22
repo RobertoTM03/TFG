@@ -22,7 +22,7 @@ async def login(request: Request):
     settings = request.app.state.settings
     params = (
         f"client_id={settings.GITHUB_CLIENT_ID}"
-        f"&scope=repo"
+        f"&scope=read:user user:email"
         f"&redirect_uri={settings.GITHUB_CALLBACK_URL}"
     )
     return RedirectResponse(f"{_GITHUB_AUTH_URL}?{params}")

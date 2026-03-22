@@ -16,6 +16,7 @@ CODE_EXTENSIONS = {
     ".sql",
     ".h", ".cpp", ".ino",
     ".css", ".html",
+    ".md", ".txt",
 }
 
 EXCLUDE_PATTERNS = (
@@ -49,17 +50,22 @@ class GitRepositoryAdapter(RepositoryPort):
         safe = self._safe_url(url)
         logger.info(f"Cloning {safe} into {tmp_dir}...")
         try:
-            Repo.clone_from(url, tmp_dir, depth=1)
+            Repo.clone_from(
+                url, tmp_dir, depth=1,
+                env={"GIT_TERMINAL_PROMPT": "0", "GIT_ASKPASS": "echo"},
+            )
         except GitCommandError as e:
             shutil.rmtree(tmp_dir, ignore_errors=True)
             stderr = str(e.stderr).strip() if e.stderr else ""
             if (
                 "could not read Username" in stderr
-                or "Authentication" in stderr
+                or "could not read Password" in stderr
+                or "Authentication failed" in stderr
+                or "authentication required" in stderr.lower()
             ):
                 raise RuntimeError(
-                    f"Cannot clone repository: {safe}. "
-                    "Check the URL and ensure the repo is public."
+                    f"Authentication failed cloning {safe}. "
+                    "The repository may be private and the stored token may lack 'repo' scope."
                 ) from e
             if (
                 "not found" in stderr.lower()

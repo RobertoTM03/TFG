@@ -47,12 +47,24 @@ async def validate_repo(
     rule_texts = [r["rule_text"] for r in rules]
     repo_url = f"https://github.com/{full_name}.git"
 
+    # Resolve installation_id: DB cache first, then GitHub API as fallback
+    installation_id: int | None = None
+    inst_row = db.get_installation_for_owner(str(user["id"]), owner)
+    if inst_row:
+        installation_id = inst_row["installation_id"]
+    else:
+        github_app = request.app.state.container.github_app
+        installation_id = github_app.get_installation_id_for_repo(owner, repo)
+        if installation_id:
+            db.upsert_installation(installation_id, str(user["id"]), owner)
+
     task = db.create_task(
         repository_url=repo_url,
         repository_full_name=full_name,
         rules=rule_texts,
         user_id=str(user["id"]),
         enable_cross_check=cross_check,
+        github_installation_id=installation_id,
     )
     return TaskCreatedResponse(task_id=str(task["id"]))
 

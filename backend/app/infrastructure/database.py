@@ -28,24 +28,6 @@ class Database:
     def _conn(self):
         return psycopg2.connect(**self._conn_params)
 
-    def apply_migrations(self) -> None:
-        """Run idempotent schema migrations for existing databases."""
-        migrations = [
-            "ALTER TABLE tasks ADD COLUMN IF NOT EXISTS enable_cross_check BOOLEAN NOT NULL DEFAULT FALSE",
-        ]
-        conn = self._conn()
-        try:
-            with conn.cursor() as cur:
-                for sql in migrations:
-                    cur.execute(sql)
-            conn.commit()
-            logger.info("Database migrations applied")
-        except Exception as exc:
-            logger.error(f"Migration failed: {exc}")
-            raise
-        finally:
-            conn.close()
-
     def check_health(self) -> bool:
         try:
             conn = self._conn()
@@ -72,16 +54,15 @@ class Database:
             ) as cur:
                 cur.execute(
                     """INSERT INTO users
-                           (github_id, github_login, avatar_url, access_token, git_token)
-                       VALUES (%s, %s, %s, %s, %s)
+                           (github_id, github_login, avatar_url, access_token)
+                       VALUES (%s, %s, %s, %s)
                        ON CONFLICT (github_id) DO UPDATE SET
-                           github_login = EXCLUDED.github_login,
-                           avatar_url   = EXCLUDED.avatar_url,
-                           access_token = EXCLUDED.access_token,
-                           git_token    = COALESCE(users.git_token, EXCLUDED.git_token),
+                           github_login  = EXCLUDED.github_login,
+                           avatar_url    = EXCLUDED.avatar_url,
+                           access_token  = EXCLUDED.access_token,
                            last_login_at = NOW()
                        RETURNING *""",
-                    (github_id, github_login, avatar_url, access_token, access_token),
+                    (github_id, github_login, avatar_url, access_token),
                 )
                 row = cur.fetchone()
             conn.commit()
@@ -97,6 +78,34 @@ class Database:
             ) as cur:
                 cur.execute(
                     "SELECT * FROM users WHERE access_token = %s", (token,),
+                )
+                row = cur.fetchone()
+            return dict(row) if row else None
+        finally:
+            conn.close()
+
+    def get_user_by_github_login(self, login: str) -> Optional[Dict[str, Any]]:
+        conn = self._conn()
+        try:
+            with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+                cur.execute("SELECT * FROM users WHERE github_login = %s", (login,))
+                row = cur.fetchone()
+            return dict(row) if row else None
+        finally:
+            conn.close()
+
+    def get_installation_for_owner(
+        self, user_id: str, account_login: str
+    ) -> Optional[Dict[str, Any]]:
+        """Return the installation row for a given user + repo owner (account_login)."""
+        conn = self._conn()
+        try:
+            with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+                cur.execute(
+                    """SELECT * FROM installations
+                       WHERE user_id = %s AND account_login = %s
+                       LIMIT 1""",
+                    (user_id, account_login),
                 )
                 row = cur.fetchone()
             return dict(row) if row else None
@@ -202,6 +211,9 @@ class Database:
         rules: List[str],
         user_id: Optional[str] = None,
         enable_cross_check: bool = False,
+        pr_number: Optional[int] = None,
+        pr_head_sha: Optional[str] = None,
+        github_installation_id: Optional[int] = None,
     ) -> Dict[str, Any]:
         conn = self._conn()
         try:
@@ -211,11 +223,13 @@ class Database:
                 cur.execute(
                     """INSERT INTO tasks
                            (user_id, repository_url, repository_full_name,
-                            rules, status, enable_cross_check)
-                       VALUES (%s, %s, %s, %s, 'pending', %s)
+                            rules, status, enable_cross_check,
+                            pr_number, pr_head_sha, github_installation_id)
+                       VALUES (%s, %s, %s, %s, 'pending', %s, %s, %s, %s)
                        RETURNING *""",
                     (user_id, repository_url, repository_full_name,
-                     json.dumps(rules), enable_cross_check),
+                     json.dumps(rules), enable_cross_check,
+                     pr_number, pr_head_sha, github_installation_id),
                 )
                 row = cur.fetchone()
             conn.commit()
@@ -448,6 +462,72 @@ class Database:
                          file_path, content_hash),
                     )
             conn.commit()
+        finally:
+            conn.close()
+
+    # GitHub App installations
+
+    def upsert_installation(
+        self,
+        installation_id: int,
+        user_id: str,
+        account_login: str,
+    ) -> None:
+        conn = self._conn()
+        try:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """INSERT INTO installations (installation_id, user_id, account_login)
+                       VALUES (%s, %s, %s)
+                       ON CONFLICT (installation_id) DO UPDATE SET
+                           account_login = EXCLUDED.account_login""",
+                    (installation_id, user_id, account_login),
+                )
+            conn.commit()
+        finally:
+            conn.close()
+
+    def delete_installation(self, installation_id: int) -> None:
+        conn = self._conn()
+        try:
+            with conn.cursor() as cur:
+                cur.execute(
+                    "DELETE FROM installations WHERE installation_id = %s",
+                    (installation_id,),
+                )
+            conn.commit()
+        finally:
+            conn.close()
+
+    def get_installation_by_id(self, installation_id: int) -> Optional[Dict[str, Any]]:
+        conn = self._conn()
+        try:
+            with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+                cur.execute(
+                    "SELECT * FROM installations WHERE installation_id = %s",
+                    (installation_id,),
+                )
+                row = cur.fetchone()
+            return dict(row) if row else None
+        finally:
+            conn.close()
+
+    def get_owner_for_repo(self, repo_full_name: str) -> Optional[Dict[str, Any]]:
+        """Return the user who has rules for this repo (treat as owner)."""
+        conn = self._conn()
+        try:
+            with conn.cursor(
+                cursor_factory=psycopg2.extras.RealDictCursor,
+            ) as cur:
+                cur.execute(
+                    """SELECT u.* FROM users u
+                       JOIN rules r ON r.user_id = u.id
+                       WHERE r.repository_full_name = %s
+                       LIMIT 1""",
+                    (repo_full_name,),
+                )
+                row = cur.fetchone()
+            return dict(row) if row else None
         finally:
             conn.close()
 

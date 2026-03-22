@@ -10,7 +10,7 @@ from app.infrastructure.container import Container
 from app.infrastructure.websocket_manager import WebSocketManager
 from app.infrastructure.worker import TaskWorker
 
-from app.api.routes import auth, health, repos, rules, tasks
+from app.api.routes import auth, health, repos, rules, tasks, webhooks
 
 
 @asynccontextmanager
@@ -28,8 +28,6 @@ async def lifespan(application: FastAPI):
     application.state.database = container.database
     application.state.ws_manager = ws_manager
     application.state.worker = worker
-
-    container.database.apply_migrations()
 
     loop = asyncio.get_event_loop()
     worker.start(loop)
@@ -68,3 +66,4 @@ app.include_router(health.router)
 app.include_router(repos.router)
 app.include_router(rules.router)
 app.include_router(tasks.router)
+app.include_router(webhooks.router)

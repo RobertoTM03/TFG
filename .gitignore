@@ -31,3 +31,7 @@ chroma_data/
 
 # Logs
 *.log
+
+# GitHub App private keys and secrets
+backend/secrets/
+*.pem

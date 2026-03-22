@@ -29,10 +29,6 @@ class Settings(BaseSettings):
     POSTGRES_PASSWORD: str = "tfg_password"
     POSTGRES_DB: str = "tfg_validator"
 
-    # Server
-    API_HOST: str = "0.0.0.0"
-    API_PORT: int = 8080
-
     # Rules
     MAX_RULES_PER_REPO: int = 10
 
@@ -57,6 +53,13 @@ class Settings(BaseSettings):
     ENABLE_CROSS_CHECK: bool = True
     LLM_PRIMARY_MODEL: str = "gemini-2.5-flash"   # gemini-2.5-flash | gemini-2.5-pro | gemini-2.0-flash | gemini-3.1-flash-lite-preview
     LLM_SECONDARY_MODEL: str = "gemini-2.0-flash"  # gemini-2.5-flash | gemini-2.5-pro | gemini-2.0-flash | gemini-3.1-flash-lite-preview
+
+    # GitHub App
+    GITHUB_APP_ID: int = 0
+    GITHUB_APP_PRIVATE_KEY_PATH: str = ""   # path to the .pem file
+    GITHUB_APP_SLUG: str = ""               # URL slug of the app (e.g. "validator")
+    GITHUB_WEBHOOK_SECRET: str = ""         # set in the App's webhook settings
+    APPROVAL_THRESHOLD: float = 0.8         # score >= threshold → approved
 
     # Background Worker
     WORKER_POLL_INTERVAL: int = 2

@@ -44,6 +44,21 @@ services:
     environment:
       - POSTGRES_HOST=db
       - CHROMA_HOST=chromadb
+    volumes:
+      - ./backend/secrets:/app/secrets:ro
+    restart: unless-stopped
+    networks:
+      - app-network
+
+  ngrok:
+    image: ngrok/ngrok:latest
+    command: http backend:8080 --log=stdout
+    environment:
+      NGROK_AUTHTOKEN: ${NGROK_AUTHTOKEN}
+    ports:
+      - "4040:4040"  # ngrok web inspector (ver URL en http://localhost:4040)
+    depends_on:
+      - backend
     restart: unless-stopped
     networks:
       - app-network
