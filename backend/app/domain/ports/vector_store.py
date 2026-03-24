@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import Dict, List, Optional
 
-from app.domain.models.chunk import SearchResult
+from app.domain.models.chunk import CodeChunk, SearchResult
 
 
 class VectorStorePort(ABC):
@@ -9,7 +9,7 @@ class VectorStorePort(ABC):
 
     @abstractmethod
     def index_documents(
-        self, texts: List[str], metadatas: List[Dict], collection_name: str,
+        self, chunks: List[CodeChunk], collection_name: str,
     ) -> int: ...
 
     @abstractmethod

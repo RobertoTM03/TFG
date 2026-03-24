@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import List
+from typing import List, Tuple
 
 from app.domain.models.chunk import CodeChunk
 
@@ -13,5 +13,5 @@ class ChunkingPort(ABC):
 
     @abstractmethod
     def chunk_files(
-        self, file_paths: List[str], contents: List[str],
+        self, files: List[Tuple[str, str]],
     ) -> List[CodeChunk]: ...
