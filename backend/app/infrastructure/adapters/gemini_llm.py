@@ -41,19 +41,6 @@ The explanation must be concise but specific, mentioning relevant files and func
 Do not include control characters or line breaks inside JSON strings.\
 """
 
-_SUMMARY_SYSTEM_PROMPT = """\
-Act as an expert software engineering professor evaluating source code.
-
-You will be provided with a list of semantic rule evaluations performed on a repository.
-Generate an executive summary that includes:
-1. An overall assessment of the repository.
-2. How many rules passed, failed, or partially passed.
-3. Main strengths and weaknesses.
-4. Top priority recommendations.
-
-Respond in plain text (no JSON). Use clear formatting with sections.\
-"""
-
 
 class GeminiLLMAdapter(LLMPort):
     """LLM adapter using Google Gemini for rule evaluation."""
@@ -80,10 +67,6 @@ class GeminiLLMAdapter(LLMPort):
             system_instruction=_SYSTEM_PROMPT,
             temperature=temperature,
             response_mime_type="application/json",
-        )
-        self._summary_config = types.GenerateContentConfig(
-            system_instruction=_SUMMARY_SYSTEM_PROMPT,
-            temperature=0.3,
         )
 
     # LLMPort interface
@@ -129,20 +112,6 @@ class GeminiLLMAdapter(LLMPort):
                 llm_provider=self.name,
                 tokens_used=0,
             )
-
-    def generate_summary(
-        self,
-        evaluations: List[RuleEvaluation],
-        repository_url: str,
-    ) -> str:
-        """Generate a summary of all evaluations."""
-        prompt = self._build_summary_prompt(evaluations, repository_url)
-
-        try:
-            return self._call_with_retry(self._summary_config, prompt)
-        except Exception as e:
-            logger.error(f"Gemini summary generation failed: {e}")
-            return self._fallback_summary(evaluations)
 
     # Retry logic
 
@@ -236,24 +205,6 @@ class GeminiLLMAdapter(LLMPort):
         )
         return prompt
 
-    def _build_summary_prompt(
-        self,
-        evaluations: List[RuleEvaluation],
-        repository_url: str,
-    ) -> str:
-        lines = [f"Repository: {repository_url}\n"]
-        for i, ev in enumerate(evaluations, 1):
-            lines.append(
-                f"### Rule {i}\n"
-                f"- Verdict: {ev.verdict}\n"
-                f"- Confidence: {ev.confidence:.0%}\n"
-                f"- Explanation: {ev.explanation}\n"
-            )
-            if ev.suggestions:
-                lines.append("- Suggestions: " + "; ".join(ev.suggestions))
-            lines.append("")
-        return "\n".join(lines)
-
     # Response parsing
 
     @staticmethod
@@ -288,26 +239,6 @@ class GeminiLLMAdapter(LLMPort):
                 explanation=f"Error parsing LLM response: {raw_text[:500]}",
                 suggestions=[],
             )
-
-    # Fallback summary
-
-    @staticmethod
-    def _fallback_summary(evaluations: List[RuleEvaluation]) -> str:
-        """Generate a basic summary without calling the LLM."""
-        total = len(evaluations)
-        passed = sum(1 for e in evaluations if e.verdict == "pass")
-        failed = sum(1 for e in evaluations if e.verdict == "fail")
-        partial = sum(1 for e in evaluations if e.verdict == "partial")
-
-        return (
-            f"Evaluation Summary\n"
-            f"==================\n\n"
-            f"Total evaluated rules: {total}\n"
-            f"- Passed: {passed}\n"
-            f"- Failed: {failed}\n"
-            f"- Partially passed: {partial}\n\n"
-            f"(Could not generate a detailed summary with the LLM.)"
-        )
 
     # Token estimation
 

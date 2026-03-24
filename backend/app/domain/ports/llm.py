@@ -24,9 +24,3 @@ class LLMPort(ABC):
         repository_url: str,
     ) -> RuleEvaluation: ...
 
-    @abstractmethod
-    def generate_summary(
-        self,
-        evaluations: List[RuleEvaluation],
-        repository_url: str,
-    ) -> str: ...

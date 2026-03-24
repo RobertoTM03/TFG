@@ -202,7 +202,6 @@ class TaskWorker:
     def _serialize_result(result) -> dict:
         return {
             "repomap": result.repomap,
-            "summary": result.summary,
             "validations": [
                 {
                     "rule": v.rule,

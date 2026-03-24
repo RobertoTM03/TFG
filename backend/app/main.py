@@ -29,7 +29,7 @@ async def lifespan(application: FastAPI):
     application.state.ws_manager = ws_manager
     application.state.worker = worker
 
-    loop = asyncio.get_event_loop()
+    loop = asyncio.get_running_loop()
     worker.start(loop)
     logger.info("Application started -- worker daemon running")
 

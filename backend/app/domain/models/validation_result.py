@@ -36,7 +36,6 @@ class ValidationResult:
     repository_url: str = ""
     repomap: str = ""
     validations: List[RuleValidation] = field(default_factory=list)
-    summary: str = ""
     embedding_model: str = ""
     chunking_strategy: str = ""
     llm_model: str = ""

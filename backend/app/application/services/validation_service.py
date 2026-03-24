@@ -262,7 +262,6 @@ class ValidationService:
                         f"confidence={cross_checked.final.confidence:.0%}"
                     )
 
-                llm_for_summary = llm_primary
                 result_llm_model = llm_primary.name
 
             else:
@@ -295,27 +294,16 @@ class ValidationService:
                         f"confidence={evaluation.confidence:.0%}"
                     )
 
-                llm_for_summary = llm
                 result_llm_model = llm.name
-
-            # 10. Generate summary
-            _report(95, "Generating summary...")
-            all_evaluations = [
-                v.evaluation for v in validations if v.evaluation
-            ]
-            summary = llm_for_summary.generate_summary(
-                all_evaluations, repository_url,
-            )
 
             _report(98, "Building result...")
 
-            # 11. Result
+            # 10. Result
             result = ValidationResult(
                 id=str(uuid.uuid4()),
                 repository_url=repository_url,
                 repomap=repomap,
                 validations=validations,
-                summary=summary,
                 embedding_model=model_name,
                 chunking_strategy=strategy_name,
                 llm_model=result_llm_model,
