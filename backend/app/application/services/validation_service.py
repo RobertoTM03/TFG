@@ -61,7 +61,6 @@ class ValidationService:
             # 2. Load files
             _report(8, "Loading source files...")
             files = self._c.repository.load_files(repo_path)
-            files = self._normalize_source_paths(files, repo_path)
 
             # 3. Compute file hashes
             current_hashes = self._compute_file_hashes(files)
@@ -441,19 +440,6 @@ class ValidationService:
         if len(result) > max_size:
             result = result[:max_size] + "\n... (truncated)"
         return result
-
-    @staticmethod
-    def _normalize_source_paths(files: List[Tuple[str, str]], repo_path: Path) -> List[Tuple[str, str]]:
-        normalized = []
-        for abs_path, content in files:
-            try:
-                rel_path = os.path.relpath(abs_path, str(repo_path))
-                # Normalize Windows paths to forward slashes
-                rel_path = rel_path.replace("\\", "/")
-                normalized.append((rel_path, content))
-            except ValueError:
-                normalized.append((abs_path, content))
-        return normalized
 
     @staticmethod
     def _compute_file_hashes(files: List[Tuple[str, str]]) -> dict:
