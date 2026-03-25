@@ -66,16 +66,18 @@ class TaskWorker:
         repo_url = task["repository_url"]
         rules = task["rules"] if isinstance(task["rules"], list) else []
 
+        # clone_url carries the installation token (rotates every hour).
+        # repo_url stays clean so _collection_name produces a stable cache key.
+        clone_url = None
         installation_id = task.get("github_installation_id")
         if installation_id:
             try:
                 inst_token = self._container.github_app.get_installation_token(installation_id)
-                repo_url = repo_url.replace("https://", f"https://x-access-token:{inst_token}@", 1)
+                clone_url = repo_url.replace("https://", f"https://x-access-token:{inst_token}@", 1)
             except Exception as exc:
                 logger.warning(f"Could not get installation token for cloning: {exc}")
 
-        safe_url = repo_url.split("@")[-1] if "@" in repo_url else repo_url
-        logger.info(f"Processing task {task_id} for {safe_url}")
+        logger.info(f"Processing task {task_id} for {repo_url}")
 
         def on_progress(pct: int, msg: str) -> None:
             self._db.update_task_progress(task_id, pct, msg)
@@ -98,6 +100,7 @@ class TaskWorker:
                 repo_url, rules,
                 on_progress=on_progress,
                 enable_cross_check=enable_cross_check,
+                clone_url=clone_url,
             )
 
             result_json = self._serialize_result(result)

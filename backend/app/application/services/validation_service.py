@@ -38,6 +38,7 @@ class ValidationService:
         rules: List[str],
         on_progress: ProgressCallback = None,
         enable_cross_check: Optional[bool] = None,
+        clone_url: Optional[str] = None,
     ) -> ValidationResult:
         """Run the full validation pipeline with incremental indexing."""
 
@@ -47,9 +48,9 @@ class ValidationService:
 
         repo_path = None
         try:
-            # 1. Clone
+            # 1. Clone — use the authenticated URL if provided.
             _report(0, "Cloning repository...")
-            repo_path = self._c.repository.clone(repository_url)
+            repo_path = self._c.repository.clone(clone_url or repository_url)
             _report(5, "Repository cloned")
 
             model_name = self._c.embedding.name
@@ -325,13 +326,7 @@ class ValidationService:
         repo_url: str, model_name: str, strategy_name: str,
     ) -> str:
         raw = f"{repo_url}|{model_name}|{strategy_name}"
-        digest = hashlib.md5(raw.encode()).hexdigest()[:12]
-        repo_slug = (
-            repo_url.rstrip("/").split("/")[-1]
-            .replace(".", "_")
-            .lower()
-        )
-        return f"{repo_slug}_{digest}"[:63]
+        return hashlib.md5(raw.encode()).hexdigest()  # 32 chars, always unique
 
     @staticmethod
     def _results_to_file_matches(
