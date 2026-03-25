@@ -12,8 +12,7 @@ class GeminiEmbeddingAdapter(EmbeddingPort):
     MODEL_NAME = "models/gemini-embedding-001"
     DEFAULT_RPM = 60
 
-    def __init__(self):
-        settings = Settings()
+    def __init__(self, settings: Settings):
         self._provider = GoogleGenerativeAIEmbeddings(
             model=self.MODEL_NAME,
             google_api_key=settings.GOOGLE_API_KEY,

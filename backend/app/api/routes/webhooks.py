@@ -12,6 +12,8 @@ def _verify_signature(body: bytes, secret: str, sig_header: str) -> None:
     if not secret:
         logger.warning("GITHUB_WEBHOOK_SECRET not set — skipping signature verification")
         return
+    if not sig_header:
+        raise HTTPException(status_code=403, detail="Missing webhook signature")
     expected = "sha256=" + hmac.new(secret.encode(), body, hashlib.sha256).hexdigest()
     if not hmac.compare_digest(expected, sig_header):
         raise HTTPException(status_code=403, detail="Invalid webhook signature")

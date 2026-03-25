@@ -533,6 +533,7 @@ class Database:
                     """SELECT u.* FROM users u
                        JOIN rules r ON r.user_id = u.id
                        WHERE r.repository_full_name = %s
+                       ORDER BY r.created_at ASC
                        LIMIT 1""",
                     (repo_full_name,),
                 )

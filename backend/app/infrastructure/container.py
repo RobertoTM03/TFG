@@ -67,7 +67,7 @@ class Container:
                 raise ValueError(
                     f"Unknown embedding model '{key}'. Available: {available}"
                 )
-            self._embedding = cls()
+            self._embedding = cls(self._settings)
         return self._embedding
 
     # Chunking
@@ -129,6 +129,7 @@ class Container:
     def llm(self) -> LLMPort:
         if self._llm is None:
             self._llm = GeminiLLMAdapter(
+                settings=self._settings,
                 model_name=self._settings.LLM_MODEL,
                 max_context_tokens=self._settings.LLM_MAX_CONTEXT_TOKENS,
                 temperature=self._settings.LLM_TEMPERATURE,
@@ -143,6 +144,7 @@ class Container:
     def llm_primary(self) -> LLMPort:
         if self._llm_primary is None:
             self._llm_primary = GeminiLLMAdapter(
+                settings=self._settings,
                 model_name=self._settings.LLM_PRIMARY_MODEL,
                 max_context_tokens=self._settings.LLM_MAX_CONTEXT_TOKENS,
                 temperature=self._settings.LLM_TEMPERATURE,
@@ -157,6 +159,7 @@ class Container:
     def llm_secondary(self) -> LLMPort:
         if self._llm_secondary is None:
             self._llm_secondary = GeminiLLMAdapter(
+                settings=self._settings,
                 model_name=self._settings.LLM_SECONDARY_MODEL,
                 max_context_tokens=self._settings.LLM_MAX_CONTEXT_TOKENS,
                 temperature=self._settings.LLM_TEMPERATURE,

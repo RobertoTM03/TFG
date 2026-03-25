@@ -47,13 +47,13 @@ class GeminiLLMAdapter(LLMPort):
 
     def __init__(
         self,
+        settings: Settings,
         model_name: str = "gemini-2.5-flash",
         max_context_tokens: int = 900_000,
         temperature: float = 0.2,
         max_retries: int = 3,
         retry_base_delay: float = 35.0,
     ) -> None:
-        settings = Settings()
         self._client = genai.Client(api_key=settings.GOOGLE_API_KEY)
         
         self._model_name = model_name

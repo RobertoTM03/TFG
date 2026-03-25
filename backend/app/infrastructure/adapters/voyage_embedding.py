@@ -12,8 +12,7 @@ class VoyageEmbeddingAdapter(EmbeddingPort):
     MODEL_NAME = "voyage-code-3"
     DEFAULT_RPM = 3
 
-    def __init__(self):
-        settings = Settings()
+    def __init__(self, settings: Settings):
         self._provider = VoyageAIEmbeddings(
             model=self.MODEL_NAME,
             voyage_api_key=settings.VOYAGE_API_KEY,
