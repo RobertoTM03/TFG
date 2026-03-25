@@ -39,6 +39,7 @@ async def lifespan(application: FastAPI):
     yield
 
     worker.stop()
+    container.database.close()
     logger.info("Application shutdown complete")
 
 

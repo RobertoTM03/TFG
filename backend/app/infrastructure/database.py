@@ -1,17 +1,26 @@
 import json
-from typing import Any, Dict, List, Optional, Tuple
+from contextlib import contextmanager
+from typing import Any, Dict, Generator, List, Optional, Tuple
 
 import psycopg2
 import psycopg2.extras
+import psycopg2.pool
 from loguru import logger
 
 # Whitelisted sort columns per entity
 _TASK_SORT_COLUMNS = {"created_at", "status", "repository_full_name", "progress"}
 _RULE_SORT_COLUMNS = {"position", "rule_text"}
 
+_POOL_MIN = 2
+_POOL_MAX = 10
+
 
 class Database:
-    """Single entry point for all SQL operations."""
+    """Single entry point for all SQL operations.
+
+    Uses a ThreadedConnectionPool so connections are reused across requests
+    instead of being created and destroyed on every operation.
+    """
 
     def __init__(
         self,
@@ -21,23 +30,39 @@ class Database:
         password: str,
         dbname: str,
     ) -> None:
-        self._conn_params = {
-            "host": host,
-            "port": port,
-            "user": user,
-            "password": password,
-            "dbname": dbname,
-        }
+        self._pool = psycopg2.pool.ThreadedConnectionPool(
+            minconn=_POOL_MIN,
+            maxconn=_POOL_MAX,
+            host=host,
+            port=port,
+            user=user,
+            password=password,
+            dbname=dbname,
+        )
+        logger.info(
+            f"Database connection pool created "
+            f"(min={_POOL_MIN}, max={_POOL_MAX})"
+        )
 
-    def _conn(self):
-        return psycopg2.connect(**self._conn_params)
+    def close(self) -> None:
+        """Close all connections in the pool (call on application shutdown)."""
+        self._pool.closeall()
+        logger.info("Database connection pool closed")
+
+    @contextmanager
+    def _conn(self) -> Generator:
+        """Yield a connection from the pool and return it when done."""
+        conn = self._pool.getconn()
+        try:
+            yield conn
+        finally:
+            self._pool.putconn(conn)
 
     def check_health(self) -> bool:
         try:
-            conn = self._conn()
-            with conn.cursor() as cur:
-                cur.execute("SELECT 1")
-            conn.close()
+            with self._conn() as conn:
+                with conn.cursor() as cur:
+                    cur.execute("SELECT 1")
             return True
         except Exception:
             return False
@@ -51,8 +76,7 @@ class Database:
         avatar_url: str,
         access_token: str,
     ) -> Dict[str, Any]:
-        conn = self._conn()
-        try:
+        with self._conn() as conn:
             with conn.cursor(
                 cursor_factory=psycopg2.extras.RealDictCursor,
             ) as cur:
@@ -71,12 +95,9 @@ class Database:
                 row = cur.fetchone()
             conn.commit()
             return dict(row)
-        finally:
-            conn.close()
 
     def get_user_by_token(self, token: str) -> Optional[Dict[str, Any]]:
-        conn = self._conn()
-        try:
+        with self._conn() as conn:
             with conn.cursor(
                 cursor_factory=psycopg2.extras.RealDictCursor,
             ) as cur:
@@ -85,25 +106,19 @@ class Database:
                 )
                 row = cur.fetchone()
             return dict(row) if row else None
-        finally:
-            conn.close()
 
     def get_user_by_github_login(self, login: str) -> Optional[Dict[str, Any]]:
-        conn = self._conn()
-        try:
+        with self._conn() as conn:
             with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
                 cur.execute("SELECT * FROM users WHERE github_login = %s", (login,))
                 row = cur.fetchone()
             return dict(row) if row else None
-        finally:
-            conn.close()
 
     def get_installation_for_owner(
         self, user_id: str, account_login: str
     ) -> Optional[Dict[str, Any]]:
         """Return the installation row for a given user + repo owner (account_login)."""
-        conn = self._conn()
-        try:
+        with self._conn() as conn:
             with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
                 cur.execute(
                     """SELECT * FROM installations
@@ -113,12 +128,9 @@ class Database:
                 )
                 row = cur.fetchone()
             return dict(row) if row else None
-        finally:
-            conn.close()
 
     def get_user_by_id(self, user_id: str) -> Optional[Dict[str, Any]]:
-        conn = self._conn()
-        try:
+        with self._conn() as conn:
             with conn.cursor(
                 cursor_factory=psycopg2.extras.RealDictCursor,
             ) as cur:
@@ -127,8 +139,6 @@ class Database:
                 )
                 row = cur.fetchone()
             return dict(row) if row else None
-        finally:
-            conn.close()
 
     # Rules
 
@@ -145,8 +155,7 @@ class Database:
         col = sort_by if sort_by in _RULE_SORT_COLUMNS else "position"
         order = "ASC" if sort_order.lower() == "asc" else "DESC"
         offset = (page - 1) * page_size
-        conn = self._conn()
-        try:
+        with self._conn() as conn:
             with conn.cursor(
                 cursor_factory=psycopg2.extras.RealDictCursor,
             ) as cur:
@@ -165,12 +174,9 @@ class Database:
                 )
                 rows = [dict(r) for r in cur.fetchall()]
             return rows, total
-        finally:
-            conn.close()
 
     def count_rules(self, user_id: str, repo_full_name: str) -> int:
-        conn = self._conn()
-        try:
+        with self._conn() as conn:
             with conn.cursor() as cur:
                 cur.execute(
                     """SELECT COUNT(*) FROM rules
@@ -178,14 +184,11 @@ class Database:
                     (user_id, repo_full_name),
                 )
                 return cur.fetchone()[0]
-        finally:
-            conn.close()
 
     def create_rule(
         self, user_id: str, repo_full_name: str, rule_text: str,
     ) -> Dict[str, Any]:
-        conn = self._conn()
-        try:
+        with self._conn() as conn:
             with conn.cursor(
                 cursor_factory=psycopg2.extras.RealDictCursor,
             ) as cur:
@@ -207,12 +210,9 @@ class Database:
                 row = cur.fetchone()
             conn.commit()
             return dict(row)
-        finally:
-            conn.close()
 
     def delete_rule(self, rule_id: str, user_id: str) -> bool:
-        conn = self._conn()
-        try:
+        with self._conn() as conn:
             with conn.cursor() as cur:
                 cur.execute(
                     "DELETE FROM rules WHERE id = %s AND user_id = %s",
@@ -221,8 +221,6 @@ class Database:
                 deleted = cur.rowcount > 0
             conn.commit()
             return deleted
-        finally:
-            conn.close()
 
     # Tasks
 
@@ -237,8 +235,7 @@ class Database:
         pr_head_sha: Optional[str] = None,
         github_installation_id: Optional[int] = None,
     ) -> Dict[str, Any]:
-        conn = self._conn()
-        try:
+        with self._conn() as conn:
             with conn.cursor(
                 cursor_factory=psycopg2.extras.RealDictCursor,
             ) as cur:
@@ -256,25 +253,19 @@ class Database:
                 row = cur.fetchone()
             conn.commit()
             return dict(row)
-        finally:
-            conn.close()
 
     def get_task(self, task_id: str) -> Optional[Dict[str, Any]]:
-        conn = self._conn()
-        try:
+        with self._conn() as conn:
             with conn.cursor(
                 cursor_factory=psycopg2.extras.RealDictCursor,
             ) as cur:
                 cur.execute("SELECT * FROM tasks WHERE id = %s", (task_id,))
                 row = cur.fetchone()
             return dict(row) if row else None
-        finally:
-            conn.close()
 
     def can_view_task(self, task_id: str, user_id: str) -> bool:
         """Return True if user_id is the owner or an authorized viewer."""
-        conn = self._conn()
-        try:
+        with self._conn() as conn:
             with conn.cursor() as cur:
                 cur.execute(
                     """SELECT 1 FROM tasks
@@ -286,14 +277,11 @@ class Database:
                     (task_id, user_id, task_id, user_id),
                 )
                 return cur.fetchone() is not None
-        finally:
-            conn.close()
 
     def count_user_tasks(
         self, user_id: str, repository_full_name: Optional[str] = None,
     ) -> int:
-        conn = self._conn()
-        try:
+        with self._conn() as conn:
             with conn.cursor() as cur:
                 if repository_full_name:
                     cur.execute(
@@ -307,8 +295,6 @@ class Database:
                         (user_id,),
                     )
                 return cur.fetchone()[0]
-        finally:
-            conn.close()
 
     def get_user_tasks(
         self,
@@ -322,8 +308,7 @@ class Database:
         col = sort_by if sort_by in _TASK_SORT_COLUMNS else "created_at"
         order = "DESC" if sort_order.lower() == "desc" else "ASC"
         offset = (page - 1) * page_size
-        conn = self._conn()
-        try:
+        with self._conn() as conn:
             with conn.cursor(
                 cursor_factory=psycopg2.extras.RealDictCursor,
             ) as cur:
@@ -344,13 +329,10 @@ class Database:
                         (user_id, page_size, offset),
                     )
                 return [dict(r) for r in cur.fetchall()]
-        finally:
-            conn.close()
 
     def claim_pending_task(self) -> Optional[Dict[str, Any]]:
         """Atomically claim the oldest pending task."""
-        conn = self._conn()
-        try:
+        with self._conn() as conn:
             with conn.cursor(
                 cursor_factory=psycopg2.extras.RealDictCursor,
             ) as cur:
@@ -369,14 +351,11 @@ class Database:
                 row = cur.fetchone()
             conn.commit()
             return dict(row) if row else None
-        finally:
-            conn.close()
 
     def update_task_progress(
         self, task_id: str, progress: int, message: str,
     ) -> None:
-        conn = self._conn()
-        try:
+        with self._conn() as conn:
             with conn.cursor() as cur:
                 cur.execute(
                     """UPDATE tasks
@@ -385,12 +364,9 @@ class Database:
                     (progress, message, task_id),
                 )
             conn.commit()
-        finally:
-            conn.close()
 
     def complete_task(self, task_id: str, result: dict) -> None:
-        conn = self._conn()
-        try:
+        with self._conn() as conn:
             with conn.cursor() as cur:
                 cur.execute(
                     """UPDATE tasks
@@ -403,12 +379,9 @@ class Database:
                     (json.dumps(result), task_id),
                 )
             conn.commit()
-        finally:
-            conn.close()
 
     def fail_task(self, task_id: str, error: str) -> None:
-        conn = self._conn()
-        try:
+        with self._conn() as conn:
             with conn.cursor() as cur:
                 cur.execute(
                     """UPDATE tasks
@@ -419,8 +392,6 @@ class Database:
                     (error, task_id),
                 )
             conn.commit()
-        finally:
-            conn.close()
 
     # Indexed repositories
 
@@ -430,8 +401,7 @@ class Database:
         embedding_model: str,
         chunking_strategy: str,
     ) -> Optional[Dict[str, Any]]:
-        conn = self._conn()
-        try:
+        with self._conn() as conn:
             with conn.cursor(
                 cursor_factory=psycopg2.extras.RealDictCursor,
             ) as cur:
@@ -444,8 +414,6 @@ class Database:
                 )
                 row = cur.fetchone()
             return dict(row) if row else None
-        finally:
-            conn.close()
 
     def save_indexed_repo(
         self,
@@ -455,8 +423,7 @@ class Database:
         embedding_model: str,
         chunking_strategy: str,
     ) -> None:
-        conn = self._conn()
-        try:
+        with self._conn() as conn:
             with conn.cursor() as cur:
                 cur.execute(
                     """INSERT INTO indexed_repositories
@@ -473,8 +440,6 @@ class Database:
                      embedding_model, chunking_strategy),
                 )
             conn.commit()
-        finally:
-            conn.close()
 
     # File hashes (incremental indexing)
 
@@ -484,8 +449,7 @@ class Database:
         embedding_model: str,
         chunking_strategy: str,
     ) -> Dict[str, str]:
-        conn = self._conn()
-        try:
+        with self._conn() as conn:
             with conn.cursor() as cur:
                 cur.execute(
                     """SELECT file_path, content_hash FROM file_hashes
@@ -495,8 +459,6 @@ class Database:
                     (repo_url, embedding_model, chunking_strategy),
                 )
                 return {row[0]: row[1] for row in cur.fetchall()}
-        finally:
-            conn.close()
 
     def save_file_hashes(
         self,
@@ -505,8 +467,7 @@ class Database:
         chunking_strategy: str,
         file_hashes: Dict[str, str],
     ) -> None:
-        conn = self._conn()
-        try:
+        with self._conn() as conn:
             with conn.cursor() as cur:
                 for file_path, content_hash in file_hashes.items():
                     cur.execute(
@@ -523,8 +484,6 @@ class Database:
                          file_path, content_hash),
                     )
             conn.commit()
-        finally:
-            conn.close()
 
     # GitHub App installations
 
@@ -534,8 +493,7 @@ class Database:
         user_id: str,
         account_login: str,
     ) -> None:
-        conn = self._conn()
-        try:
+        with self._conn() as conn:
             with conn.cursor() as cur:
                 cur.execute(
                     """INSERT INTO installations (installation_id, user_id, account_login)
@@ -545,24 +503,18 @@ class Database:
                     (installation_id, user_id, account_login),
                 )
             conn.commit()
-        finally:
-            conn.close()
 
     def delete_installation(self, installation_id: int) -> None:
-        conn = self._conn()
-        try:
+        with self._conn() as conn:
             with conn.cursor() as cur:
                 cur.execute(
                     "DELETE FROM installations WHERE installation_id = %s",
                     (installation_id,),
                 )
             conn.commit()
-        finally:
-            conn.close()
 
     def get_installation_by_id(self, installation_id: int) -> Optional[Dict[str, Any]]:
-        conn = self._conn()
-        try:
+        with self._conn() as conn:
             with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
                 cur.execute(
                     "SELECT * FROM installations WHERE installation_id = %s",
@@ -570,13 +522,10 @@ class Database:
                 )
                 row = cur.fetchone()
             return dict(row) if row else None
-        finally:
-            conn.close()
 
     def get_owner_for_repo(self, repo_full_name: str) -> Optional[Dict[str, Any]]:
         """Return the user who has rules for this repo (treat as owner)."""
-        conn = self._conn()
-        try:
+        with self._conn() as conn:
             with conn.cursor(
                 cursor_factory=psycopg2.extras.RealDictCursor,
             ) as cur:
@@ -589,8 +538,6 @@ class Database:
                 )
                 row = cur.fetchone()
             return dict(row) if row else None
-        finally:
-            conn.close()
 
     def delete_file_hash_entries(
         self,
@@ -601,8 +548,7 @@ class Database:
     ) -> None:
         if not file_paths:
             return
-        conn = self._conn()
-        try:
+        with self._conn() as conn:
             with conn.cursor() as cur:
                 cur.execute(
                     """DELETE FROM file_hashes
@@ -610,9 +556,6 @@ class Database:
                          AND embedding_model = %s
                          AND chunking_strategy = %s
                          AND file_path = ANY(%s)""",
-                    (repo_url, embedding_model, chunking_strategy,
-                     file_paths),
+                    (repo_url, embedding_model, chunking_strategy, file_paths),
                 )
             conn.commit()
-        finally:
-            conn.close()
