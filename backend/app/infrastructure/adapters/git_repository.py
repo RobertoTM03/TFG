@@ -17,6 +17,7 @@ CODE_EXTENSIONS = {
     ".h", ".cpp", ".ino",
     ".css", ".html",
     ".md", ".txt",
+    ".java", ".go", ".rb", ".php", ".rs", ".kt",
 }
 
 EXCLUDE_PATTERNS = (
