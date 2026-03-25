@@ -46,6 +46,12 @@ services:
       - CHROMA_HOST=chromadb
     volumes:
       - ./backend/secrets:/app/secrets:ro
+    healthcheck:
+      test: [ "CMD-SHELL", "curl -f http://localhost:8080/health || exit 1" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
     restart: unless-stopped
     networks:
       - app-network
@@ -58,7 +64,8 @@ services:
     ports:
       - "4040:4040"  # ngrok web inspector (ver URL en http://localhost:4040)
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
     restart: unless-stopped
     networks:
       - app-network

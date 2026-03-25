@@ -56,7 +56,7 @@ class Settings(BaseSettings):
     # Cross-Check (dual-model consensus evaluation)
     ENABLE_CROSS_CHECK: bool = True
     LLM_PRIMARY_MODEL: str = "gemini-2.5-flash"
-    LLM_SECONDARY_MODEL: str = "gemini-2.0-flash"
+    LLM_SECONDARY_MODEL: str = "gemini-2.5-flash"
 
     # GitHub App
     GITHUB_APP_ID: int = 0

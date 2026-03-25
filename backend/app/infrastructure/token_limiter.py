@@ -27,7 +27,7 @@ class TokenLimiter:
         if last_nl > max_chars * 0.5:
             truncated = truncated[:last_nl]
 
-        return truncated + "\n... (contenido truncado por limite de tokens)"
+        return truncated + "\n... (content truncated due to token limit)"
 
     def fit_file_contents(
         self,
@@ -36,7 +36,7 @@ class TokenLimiter:
     ) -> str:
         """Fit as many file contents as possible within a token budget."""
         if not file_contents:
-            return "(No se encontraron archivos relevantes)"
+            return "(No relevant files found)"
 
         max_chars = max_tokens * CHARS_PER_TOKEN
         result_parts: List[str] = []
@@ -61,7 +61,7 @@ class TokenLimiter:
                     truncated = truncated[:last_nl]
                     
                 result_parts.append(
-                    truncated + "\n... (archivo truncado por limite de tokens)"
+                    truncated + "\n... (file truncated due to token limit)"
                 )
                 chars_used = max_chars
                 
@@ -74,7 +74,7 @@ class TokenLimiter:
 
         if skipped_files:
             result += (
-                "\n\n--- Archivos omitidos por limite de tokens ---\n"
+                "\n\n--- Files skipped due to token limit ---\n"
                 + "\n".join(skipped_files)
             )
 
