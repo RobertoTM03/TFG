@@ -1,5 +1,9 @@
+from pydantic import field_validator, model_validator
 from pydantic_settings import BaseSettings
 
+_VALID_EMBEDDING_MODELS = {"gemini", "voyage"}
+_VALID_CHUNKING_STRATEGIES = {"tree-sitter", "tree-sitter-limited"}
+_VALID_LLM_MODELS = {"gemini-2.5-flash","gemini-3.1-flash-lite-preview"}
 
 class Settings(BaseSettings):
     """All configurable values for the application."""
@@ -37,7 +41,7 @@ class Settings(BaseSettings):
     MAX_RESULTS: int = 5
     MAX_FILE_CONTENT_SIZE: int = 10000
 
-    # Rate Limiting 
+    # Rate Limiting
     BATCH_SIZE: int = 5
     DELAY_BETWEEN_BATCHES: float = 4.0
     EMBEDDING_RPM: int = 0
@@ -51,8 +55,8 @@ class Settings(BaseSettings):
 
     # Cross-Check (dual-model consensus evaluation)
     ENABLE_CROSS_CHECK: bool = True
-    LLM_PRIMARY_MODEL: str = "gemini-2.5-flash"   # gemini-2.5-flash | gemini-2.5-pro | gemini-2.0-flash | gemini-3.1-flash-lite-preview
-    LLM_SECONDARY_MODEL: str = "gemini-2.0-flash"  # gemini-2.5-flash | gemini-2.5-pro | gemini-2.0-flash | gemini-3.1-flash-lite-preview
+    LLM_PRIMARY_MODEL: str = "gemini-2.5-flash"
+    LLM_SECONDARY_MODEL: str = "gemini-2.0-flash"
 
     # GitHub App
     GITHUB_APP_ID: int = 0
@@ -65,3 +69,141 @@ class Settings(BaseSettings):
     WORKER_POLL_INTERVAL: int = 2
 
     model_config = {"env_file": ".env", "env_file_encoding": "utf-8"}
+
+    # Per-field validators
+
+    @field_validator("EMBEDDING_MODEL")
+    @classmethod
+    def _check_embedding_model(cls, v: str) -> str:
+        if v not in _VALID_EMBEDDING_MODELS:
+            raise ValueError(
+                f"EMBEDDING_MODEL='{v}' is not valid. "
+                f"Choose one of: {sorted(_VALID_EMBEDDING_MODELS)}"
+            )
+        return v
+
+    @field_validator("CHUNKING_STRATEGY")
+    @classmethod
+    def _check_chunking_strategy(cls, v: str) -> str:
+        if v not in _VALID_CHUNKING_STRATEGIES:
+            raise ValueError(
+                f"CHUNKING_STRATEGY='{v}' is not valid. "
+                f"Choose one of: {sorted(_VALID_CHUNKING_STRATEGIES)}"
+            )
+        return v
+
+    @field_validator("LLM_MODEL", "LLM_PRIMARY_MODEL", "LLM_SECONDARY_MODEL")
+    @classmethod
+    def _check_llm_model(cls, v: str, info) -> str:
+        if v not in _VALID_LLM_MODELS:
+            raise ValueError(
+                f"{info.field_name}='{v}' is not valid. "
+                f"Choose one of: {sorted(_VALID_LLM_MODELS)}"
+            )
+        return v
+
+    @field_validator("SIMILARITY_THRESHOLD", "APPROVAL_THRESHOLD")
+    @classmethod
+    def _check_threshold(cls, v: float, info) -> float:
+        if not (0.0 <= v <= 1.0):
+            raise ValueError(
+                f"{info.field_name}={v} must be between 0.0 and 1.0"
+            )
+        return v
+
+    @field_validator("LLM_TEMPERATURE")
+    @classmethod
+    def _check_temperature(cls, v: float) -> float:
+        if not (0.0 <= v <= 2.0):
+            raise ValueError(
+                f"LLM_TEMPERATURE={v} must be between 0.0 and 2.0"
+            )
+        return v
+
+    @field_validator("CHROMA_PORT", "POSTGRES_PORT")
+    @classmethod
+    def _check_port(cls, v: int, info) -> int:
+        if not (1 <= v <= 65535):
+            raise ValueError(
+                f"{info.field_name}={v} must be a valid port (1–65535)"
+            )
+        return v
+
+    @field_validator("MAX_RULES_PER_REPO", "WORKER_POLL_INTERVAL", "LLM_MAX_RETRIES", "BATCH_SIZE")
+    @classmethod
+    def _check_positive_int(cls, v: int, info) -> int:
+        if v < 1:
+            raise ValueError(f"{info.field_name}={v} must be >= 1")
+        return v
+
+    @field_validator("MAX_RESULTS")
+    @classmethod
+    def _check_max_results(cls, v: int) -> int:
+        if v < 1:
+            raise ValueError(f"MAX_RESULTS={v} must be >= 1")
+        return v
+
+    @field_validator("LLM_MAX_CONTEXT_TOKENS")
+    @classmethod
+    def _check_context_tokens(cls, v: int) -> int:
+        if v < 1000:
+            raise ValueError(f"LLM_MAX_CONTEXT_TOKENS={v} must be >= 1000")
+        return v
+
+    # Cross-field / coherence validators
+
+    @model_validator(mode="after")
+    def _check_api_key_for_embedding_model(self) -> "Settings":
+        if self.EMBEDDING_MODEL == "gemini" and not self.GOOGLE_API_KEY:
+            raise ValueError(
+                "EMBEDDING_MODEL='gemini' requires GOOGLE_API_KEY to be set"
+            )
+        if self.EMBEDDING_MODEL == "voyage" and not self.VOYAGE_API_KEY:
+            raise ValueError(
+                "EMBEDDING_MODEL='voyage' requires VOYAGE_API_KEY to be set"
+            )
+        return self
+
+    @model_validator(mode="after")
+    def _check_cross_check_models_differ(self) -> "Settings":
+        if (
+            self.ENABLE_CROSS_CHECK
+            and self.LLM_PRIMARY_MODEL == self.LLM_SECONDARY_MODEL
+        ):
+            raise ValueError(
+                "ENABLE_CROSS_CHECK=true requires LLM_PRIMARY_MODEL and "
+                "LLM_SECONDARY_MODEL to be different models. "
+                f"Both are currently '{self.LLM_PRIMARY_MODEL}'."
+            )
+        return self
+
+    @model_validator(mode="after")
+    def _check_github_app_config(self) -> "Settings":
+        has_id = self.GITHUB_APP_ID != 0
+        has_key = bool(self.GITHUB_APP_PRIVATE_KEY_PATH)
+        if has_id and not has_key:
+            raise ValueError(
+                "GITHUB_APP_ID is set but GITHUB_APP_PRIVATE_KEY_PATH is empty"
+            )
+        if has_key and not has_id:
+            raise ValueError(
+                "GITHUB_APP_PRIVATE_KEY_PATH is set but GITHUB_APP_ID is 0"
+            )
+        return self
+
+    # Non-blocking warnings (called explicitly from main.py)
+
+    def warn_if_incomplete(self) -> list[str]:
+        """Return a list of warning messages for missing but non-critical config.
+        Does not raise — callers should log these at WARNING level.
+        """
+        warnings: list[str] = []
+        if not self.GITHUB_CLIENT_ID:
+            warnings.append("GITHUB_CLIENT_ID is empty — OAuth login will not work")
+        if not self.GITHUB_CLIENT_SECRET:
+            warnings.append("GITHUB_CLIENT_SECRET is empty — OAuth login will not work")
+        if self.GITHUB_APP_ID == 0:
+            warnings.append(
+                "GITHUB_APP_ID is 0 — GitHub App features (webhooks, PR review) are disabled"
+            )
+        return warnings

@@ -1,7 +1,11 @@
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 
 from app.api.dependencies import get_current_user
-from app.api.schemas import CreateRuleRequest, RuleResponse, RulesListResponse
+from app.api.schemas import (
+    CreateRuleRequest,
+    PaginatedResponse,
+    RuleResponse,
+)
 
 router = APIRouter(prefix="/api", tags=["Rules"])
 
@@ -9,19 +13,28 @@ router = APIRouter(prefix="/api", tags=["Rules"])
 @router.get(
     "/repos/{owner}/{repo}/rules",
     summary="List rules for a repository",
-    response_model=RulesListResponse,
+    response_model=PaginatedResponse[RuleResponse],
 )
 async def list_rules(
     owner: str,
     repo: str,
     request: Request,
     user: dict = Depends(get_current_user),
+    page: int = Query(1, ge=1, description="Page number (1-indexed)"),
+    page_size: int = Query(20, ge=1, le=100, description="Items per page"),
+    sort_by: str = Query("position", description="Sort column: position | rule_text"),
+    sort_order: str = Query("asc", pattern="^(asc|desc)$", description="asc or desc"),
 ):
     db = request.app.state.database
     full_name = f"{owner}/{repo}"
-    rows = db.get_rules(str(user["id"]), full_name)
-    return RulesListResponse(
-        rules=[
+    rows, total = db.get_rules(
+        str(user["id"]), full_name,
+        page=page, page_size=page_size,
+        sort_by=sort_by, sort_order=sort_order,
+    )
+    total_pages = max(1, -(-total // page_size))  # ceiling division
+    return PaginatedResponse[RuleResponse](
+        items=[
             RuleResponse(
                 id=str(r["id"]),
                 rule_text=r["rule_text"],
@@ -29,7 +42,10 @@ async def list_rules(
             )
             for r in rows
         ],
-        count=len(rows),
+        total=total,
+        page=page,
+        page_size=page_size,
+        total_pages=total_pages,
     )
 
 

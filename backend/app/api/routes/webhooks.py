@@ -85,7 +85,7 @@ async def _handle_pull_request(payload: dict, request: Request) -> dict:
     if not owner_user:
         return {"ignored": True, "reason": "no owner with rules found for this repository"}
 
-    rules = db.get_rules(str(owner_user["id"]), repo_full_name)
+    rules, _ = db.get_rules(str(owner_user["id"]), repo_full_name, page=1, page_size=1000)
     if not rules:
         return {"ignored": True, "reason": "no rules defined for this repository"}
 

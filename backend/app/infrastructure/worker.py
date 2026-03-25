@@ -79,7 +79,7 @@ class TaskWorker:
 
         def on_progress(pct: int, msg: str) -> None:
             self._db.update_task_progress(task_id, pct, msg)
-            self._notify(user_id, {
+            self._notify(user_id, task_id, {
                 "type": "task_progress",
                 "task_id": task_id,
                 "progress": pct,
@@ -103,7 +103,7 @@ class TaskWorker:
             result_json = self._serialize_result(result)
             self._db.complete_task(task_id, result_json)
 
-            self._notify(user_id, {
+            self._notify(user_id, task_id, {
                 "type": "task_completed",
                 "task_id": task_id,
             })
@@ -116,7 +116,7 @@ class TaskWorker:
             error_msg = str(exc)
             self._db.fail_task(task_id, error_msg)
 
-            self._notify(user_id, {
+            self._notify(user_id, task_id, {
                 "type": "task_failed",
                 "task_id": task_id,
                 "error": error_msg,
@@ -184,13 +184,13 @@ class TaskWorker:
 
     # WebSocket notification from worker thread
 
-    def _notify(self, user_id: Optional[str], message: dict) -> None:
+    def _notify(self, user_id: Optional[str], task_id: str, message: dict) -> None:
         """Send a WebSocket notification. Safe to call from any thread."""
         if not user_id or not self._ws_manager or not self._loop:
             return
         try:
             asyncio.run_coroutine_threadsafe(
-                self._ws_manager.notify_user(user_id, message),
+                self._ws_manager.notify_task(task_id, user_id, message),
                 self._loop,
             )
         except Exception:

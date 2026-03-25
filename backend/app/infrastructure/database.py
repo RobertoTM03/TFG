@@ -1,9 +1,13 @@
 import json
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 import psycopg2
 import psycopg2.extras
 from loguru import logger
+
+# Whitelisted sort columns per entity
+_TASK_SORT_COLUMNS = {"created_at", "status", "repository_full_name", "progress"}
+_RULE_SORT_COLUMNS = {"position", "rule_text"}
 
 
 class Database:
@@ -129,20 +133,38 @@ class Database:
     # Rules
 
     def get_rules(
-        self, user_id: str, repo_full_name: str,
-    ) -> List[Dict[str, Any]]:
+        self,
+        user_id: str,
+        repo_full_name: str,
+        page: int = 1,
+        page_size: int = 50,
+        sort_by: str = "position",
+        sort_order: str = "asc",
+    ) -> Tuple[List[Dict[str, Any]], int]:
+        """Returns (rows, total_count) to support pagination."""
+        col = sort_by if sort_by in _RULE_SORT_COLUMNS else "position"
+        order = "ASC" if sort_order.lower() == "asc" else "DESC"
+        offset = (page - 1) * page_size
         conn = self._conn()
         try:
             with conn.cursor(
                 cursor_factory=psycopg2.extras.RealDictCursor,
             ) as cur:
                 cur.execute(
-                    """SELECT * FROM rules
-                       WHERE user_id = %s AND repository_full_name = %s
-                       ORDER BY position""",
+                    """SELECT COUNT(*) FROM rules
+                       WHERE user_id = %s AND repository_full_name = %s""",
                     (user_id, repo_full_name),
                 )
-                return [dict(r) for r in cur.fetchall()]
+                total = cur.fetchone()["count"]
+                cur.execute(
+                    f"""SELECT * FROM rules
+                        WHERE user_id = %s AND repository_full_name = %s
+                        ORDER BY {col} {order}
+                        LIMIT %s OFFSET %s""",
+                    (user_id, repo_full_name, page_size, offset),
+                )
+                rows = [dict(r) for r in cur.fetchall()]
+            return rows, total
         finally:
             conn.close()
 
@@ -267,21 +289,60 @@ class Database:
         finally:
             conn.close()
 
+    def count_user_tasks(
+        self, user_id: str, repository_full_name: Optional[str] = None,
+    ) -> int:
+        conn = self._conn()
+        try:
+            with conn.cursor() as cur:
+                if repository_full_name:
+                    cur.execute(
+                        """SELECT COUNT(*) FROM tasks
+                           WHERE user_id = %s AND repository_full_name = %s""",
+                        (user_id, repository_full_name),
+                    )
+                else:
+                    cur.execute(
+                        "SELECT COUNT(*) FROM tasks WHERE user_id = %s",
+                        (user_id,),
+                    )
+                return cur.fetchone()[0]
+        finally:
+            conn.close()
+
     def get_user_tasks(
-        self, user_id: str, limit: int = 50,
+        self,
+        user_id: str,
+        page: int = 1,
+        page_size: int = 20,
+        sort_by: str = "created_at",
+        sort_order: str = "desc",
+        repository_full_name: Optional[str] = None,
     ) -> List[Dict[str, Any]]:
+        col = sort_by if sort_by in _TASK_SORT_COLUMNS else "created_at"
+        order = "DESC" if sort_order.lower() == "desc" else "ASC"
+        offset = (page - 1) * page_size
         conn = self._conn()
         try:
             with conn.cursor(
                 cursor_factory=psycopg2.extras.RealDictCursor,
             ) as cur:
-                cur.execute(
-                    """SELECT * FROM tasks
-                       WHERE user_id = %s
-                       ORDER BY created_at DESC
-                       LIMIT %s""",
-                    (user_id, limit),
-                )
+                if repository_full_name:
+                    cur.execute(
+                        f"""SELECT * FROM tasks
+                            WHERE user_id = %s AND repository_full_name = %s
+                            ORDER BY {col} {order}
+                            LIMIT %s OFFSET %s""",
+                        (user_id, repository_full_name, page_size, offset),
+                    )
+                else:
+                    cur.execute(
+                        f"""SELECT * FROM tasks
+                            WHERE user_id = %s
+                            ORDER BY {col} {order}
+                            LIMIT %s OFFSET %s""",
+                        (user_id, page_size, offset),
+                    )
                 return [dict(r) for r in cur.fetchall()]
         finally:
             conn.close()

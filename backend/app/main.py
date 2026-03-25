@@ -19,6 +19,9 @@ async def lifespan(application: FastAPI):
     Shutdown: stop the worker gracefully."""
 
     settings = Settings()
+    for warning in settings.warn_if_incomplete():
+        logger.warning(f"[config] {warning}")
+
     container = Container(settings)
     ws_manager = WebSocketManager()
     worker = TaskWorker(container, container.database, settings, ws_manager)

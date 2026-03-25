@@ -1,11 +1,13 @@
 import json
+from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Request, WebSocket
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, WebSocket
 
 from app.api.dependencies import get_current_user
 from app.api.schemas import (
     CrossCheckResponse,
     FileMatchResponse,
+    PaginatedResponse,
     RuleEvaluationResponse,
     RuleValidationResponse,
     TaskCreatedResponse,
@@ -37,7 +39,7 @@ async def validate_repo(
     db = request.app.state.database
     full_name = f"{owner}/{repo}"
 
-    rules = db.get_rules(str(user["id"]), full_name)
+    rules, _ = db.get_rules(str(user["id"]), full_name, page=1, page_size=1000)
     if not rules:
         raise HTTPException(
             status_code=400,
@@ -74,25 +76,51 @@ async def validate_repo(
 @router.get(
     "/api/tasks",
     summary="List current user's tasks",
-    response_model=list[TaskSummaryResponse],
+    response_model=PaginatedResponse[TaskSummaryResponse],
 )
 async def list_tasks(
     request: Request,
     user: dict = Depends(get_current_user),
+    page: int = Query(1, ge=1, description="Page number (1-indexed)"),
+    page_size: int = Query(20, ge=1, le=100, description="Items per page"),
+    sort_by: str = Query(
+        "created_at",
+        description="Sort column: created_at | status | repository_full_name | progress",
+    ),
+    sort_order: str = Query("desc", pattern="^(asc|desc)$", description="asc or desc"),
+    repository_full_name: Optional[str] = Query(
+        None, description="Filter by repository (e.g. owner/repo)"
+    ),
 ):
     db = request.app.state.database
-    rows = db.get_user_tasks(str(user["id"]))
-    return [
-        TaskSummaryResponse(
-            id=str(t["id"]),
-            repository_full_name=t["repository_full_name"],
-            status=t["status"],
-            progress=t.get("progress", 0),
-            progress_message=t.get("progress_message", ""),
-            created_at=str(t["created_at"]),
-        )
-        for t in rows
-    ]
+    user_id = str(user["id"])
+    total = db.count_user_tasks(user_id, repository_full_name=repository_full_name)
+    rows = db.get_user_tasks(
+        user_id,
+        page=page, page_size=page_size,
+        sort_by=sort_by, sort_order=sort_order,
+        repository_full_name=repository_full_name,
+    )
+
+    total_pages = max(1, -(-total // page_size))
+    
+    return PaginatedResponse[TaskSummaryResponse](
+        items=[
+            TaskSummaryResponse(
+                id=str(t["id"]),
+                repository_full_name=t["repository_full_name"],
+                status=t["status"],
+                progress=t.get("progress", 0),
+                progress_message=t.get("progress_message", ""),
+                created_at=str(t["created_at"]),
+            )
+            for t in rows
+        ],
+        total=total,
+        page=page,
+        page_size=page_size,
+        total_pages=total_pages,
+    )
 
 
 @router.get(
@@ -140,8 +168,9 @@ async def get_task(
 
 @router.websocket("/ws/tasks")
 async def ws_tasks(websocket: WebSocket):
-    """Authenticate via first message `{"token": "xxx"}` and push
-    task progress / completion events to the connected client.
+    """Authenticate via first message `{"token": "xxx"}`, then accept
+    subscription requests `{"type": "subscribe", "task_id": "..."}` to
+    receive targeted progress / completion events without polling.
     """
     await websocket.accept()
 
@@ -168,9 +197,46 @@ async def ws_tasks(websocket: WebSocket):
     await ws_manager.connect(websocket, user_id)
 
     try:
-        # Keep alive -- client sends periodic pings, server pushes events
         while True:
-            await websocket.receive_text()
+            text = await websocket.receive_text()
+            try:
+                msg = json.loads(text)
+            except Exception:
+                continue
+
+            msg_type = msg.get("type")
+
+            if msg_type == "subscribe":
+                task_id = msg.get("task_id", "")
+                if not task_id:
+                    continue
+                # Verify the user is allowed to view this task
+                task = db.get_task(task_id)
+                if not task or not db.can_view_task(task_id, user_id):
+                    await websocket.send_json({
+                        "type": "error",
+                        "task_id": task_id,
+                        "detail": "Task not found or access denied",
+                    })
+                    continue
+                ws_manager.subscribe(websocket, task_id)
+                # Send current state immediately so the client doesn't need a
+                # separate REST call while waiting for the next progress event
+                await websocket.send_json({
+                    "type": "task_state",
+                    "task_id": task_id,
+                    "status": task["status"],
+                    "progress": task.get("progress", 0),
+                    "message": task.get("progress_message", ""),
+                })
+
+            elif msg_type == "unsubscribe":
+                task_id = msg.get("task_id", "")
+                if task_id:
+                    ws_manager.unsubscribe(websocket, task_id)
+
+            # pings and unknown message types are silently ignored
+
     except Exception:
         ws_manager.disconnect(websocket, user_id)
 

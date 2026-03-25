@@ -1,7 +1,8 @@
-from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Generic, List, Optional, TypeVar
 
 from pydantic import BaseModel, Field
+
+T = TypeVar("T")
 
 # Requests
 
@@ -26,11 +27,6 @@ class RuleResponse(BaseModel):
     id: str
     rule_text: str
     position: int
-
-
-class RulesListResponse(BaseModel):
-    rules: List[RuleResponse]
-    count: int
 
 
 class TaskCreatedResponse(BaseModel):
@@ -112,6 +108,15 @@ class TaskDetailResponse(BaseModel):
     created_at: str
     started_at: Optional[str] = None
     completed_at: Optional[str] = None
+
+
+class PaginatedResponse(BaseModel, Generic[T]):
+    """Generic paginated list wrapper returned by list endpoints."""
+    items: List[T]
+    total: int
+    page: int
+    page_size: int
+    total_pages: int
 
 
 class HealthResponse(BaseModel):
