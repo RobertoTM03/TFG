@@ -54,7 +54,6 @@ class Settings(BaseSettings):
     LLM_RETRY_BASE_DELAY: float = 35.0
 
     # Cross-Check (dual-model consensus evaluation)
-    ENABLE_CROSS_CHECK: bool = True
     LLM_PRIMARY_MODEL: str = "gemini-2.5-flash"
     LLM_SECONDARY_MODEL: str = "gemini-2.5-flash"
 
@@ -161,19 +160,6 @@ class Settings(BaseSettings):
         if self.EMBEDDING_MODEL == "voyage" and not self.VOYAGE_API_KEY:
             raise ValueError(
                 "EMBEDDING_MODEL='voyage' requires VOYAGE_API_KEY to be set"
-            )
-        return self
-
-    @model_validator(mode="after")
-    def _check_cross_check_models_differ(self) -> "Settings":
-        if (
-            self.ENABLE_CROSS_CHECK
-            and self.LLM_PRIMARY_MODEL == self.LLM_SECONDARY_MODEL
-        ):
-            raise ValueError(
-                "ENABLE_CROSS_CHECK=true requires LLM_PRIMARY_MODEL and "
-                "LLM_SECONDARY_MODEL to be different models. "
-                f"Both are currently '{self.LLM_PRIMARY_MODEL}'."
             )
         return self
 

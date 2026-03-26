@@ -216,11 +216,7 @@ class ValidationService:
                 )
 
             # 9. LLM evaluation -- one rule at a time
-            cross_check_active = (
-                enable_cross_check
-                if enable_cross_check is not None
-                else self._settings.ENABLE_CROSS_CHECK
-            )
+            cross_check_active = enable_cross_check if enable_cross_check is not None else False
             if cross_check_active:
                 _report(80, "Evaluating rules with cross-check (dual-model)...")
                 llm_primary = self._c.llm_primary
