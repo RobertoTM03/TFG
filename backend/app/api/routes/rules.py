@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 
 from app.api.dependencies import get_current_user
+from app.infrastructure.limiter import limiter, rate_limit_default
 from app.api.schemas import (
     CreateRuleRequest,
     PaginatedResponse,
@@ -15,6 +16,7 @@ router = APIRouter(prefix="/api", tags=["Rules"])
     summary="List rules for a repository",
     response_model=PaginatedResponse[RuleResponse],
 )
+@limiter.limit(rate_limit_default)
 async def list_rules(
     owner: str,
     repo: str,
@@ -55,6 +57,7 @@ async def list_rules(
     summary="Create a new rule",
     response_model=RuleResponse,
 )
+@limiter.limit(rate_limit_default)
 async def create_rule(
     owner: str,
     repo: str,
@@ -86,6 +89,7 @@ async def create_rule(
     status_code=204,
     summary="Delete a rule",
 )
+@limiter.limit(rate_limit_default)
 async def delete_rule(
     owner: str,
     repo: str,

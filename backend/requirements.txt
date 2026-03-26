@@ -20,6 +20,7 @@ langchain-google-genai>=2.0.0
 langchain-voyageai>=0.1.1
 
 # Utilities
+slowapi>=0.1.9
 loguru>=0.7.0
 gitpython>=3.1.0
 PyJWT[cryptography]>=2.8.0

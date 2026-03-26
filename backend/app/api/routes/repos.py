@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, Request
 
 from app.api.dependencies import get_current_user
+from app.infrastructure.limiter import limiter, rate_limit_default
 
 router = APIRouter(prefix="/api", tags=["Repositories"])
 
@@ -13,6 +14,7 @@ async def app_info(request: Request):
 
 
 @router.get("/repos", summary="List repositories where the GitHub App is installed")
+@limiter.limit(rate_limit_default)
 async def list_repos(
     request: Request,
     user: dict = Depends(get_current_user),
@@ -42,6 +44,7 @@ async def list_repos(
 
 
 @router.get("/installations", summary="List the user's GitHub App installations")
+@limiter.limit(rate_limit_default)
 async def list_installations(
     request: Request,
     user: dict = Depends(get_current_user),

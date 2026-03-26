@@ -41,10 +41,14 @@ class Settings(BaseSettings):
     MAX_RESULTS: int = 5
     MAX_FILE_CONTENT_SIZE: int = 10000
 
-    # Rate Limiting
+    # Rate Limiting (embedding)
     BATCH_SIZE: int = 5
     DELAY_BETWEEN_BATCHES: float = 4.0
     EMBEDDING_RPM: int = 0
+
+    # Rate Limiting (API)
+    RATE_LIMIT_VALIDATE: str = "10/minute"   # Critical endpoints (validate)
+    RATE_LIMIT_DEFAULT: str = "100/minute"   # All other authenticated endpoints
 
     # LLM Evaluation
     LLM_MODEL: str = "gemini-2.5-flash"

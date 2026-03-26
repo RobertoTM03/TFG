@@ -45,7 +45,7 @@ class Container:
 
     def __init__(self, settings: Settings) -> None:
         self._settings = settings
-        self._lock = threading.Lock()
+        self._lock = threading.RLock()
         self._embedding: EmbeddingPort | None = None
         self._chunking: ChunkingPort | None = None
         self._vector_store: VectorStorePort | None = None

@@ -204,7 +204,6 @@ class TaskWorker:
     @staticmethod
     def _serialize_result(result) -> dict:
         return {
-            "repomap": result.repomap,
             "validations": [
                 {
                     "rule": v.rule,
@@ -219,7 +218,6 @@ class TaskWorker:
                         }
                         for f in v.related_files
                     ],
-                    "match_count": len(v.related_files),
                     "evaluation": {
                         "verdict": v.evaluation.verdict,
                         "confidence": v.evaluation.confidence,
@@ -232,9 +230,11 @@ class TaskWorker:
                         "primary_verdict": v.cross_check.primary.verdict,
                         "primary_confidence": v.cross_check.primary.confidence,
                         "primary_model": v.cross_check.primary.llm_provider,
+                        "primary_explanation": v.cross_check.primary.explanation,
                         "secondary_verdict": v.cross_check.secondary.verdict,
                         "secondary_confidence": v.cross_check.secondary.confidence,
                         "secondary_model": v.cross_check.secondary.llm_provider,
+                        "secondary_explanation": v.cross_check.secondary.explanation,
                         "strategy_used": v.cross_check.strategy_used,
                         "agreement": v.cross_check.agreement,
                     } if v.cross_check else None,

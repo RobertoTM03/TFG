@@ -4,6 +4,7 @@ from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, WebSocket
 
 from app.api.dependencies import get_current_user
+from app.infrastructure.limiter import limiter, rate_limit_validate, rate_limit_default
 from app.api.schemas import (
     CrossCheckResponse,
     FileMatchResponse,
@@ -27,6 +28,7 @@ router = APIRouter(tags=["Tasks"])
     summary="Validate a repository against its stored rules",
     response_model=TaskCreatedResponse,
 )
+@limiter.limit(rate_limit_validate)
 async def validate_repo(
     owner: str,
     repo: str,
@@ -78,6 +80,7 @@ async def validate_repo(
     summary="List current user's tasks",
     response_model=PaginatedResponse[TaskSummaryResponse],
 )
+@limiter.limit(rate_limit_default)
 async def list_tasks(
     request: Request,
     user: dict = Depends(get_current_user),
@@ -128,6 +131,7 @@ async def list_tasks(
     summary="Get task status and result",
     response_model=TaskDetailResponse,
 )
+@limiter.limit(rate_limit_default)
 async def get_task(
     task_id: str,
     request: Request,
@@ -249,8 +253,6 @@ def _parse_task_result(raw) -> TaskResultResponse | None:
         return None
     data = raw if isinstance(raw, dict) else json.loads(raw)
     return TaskResultResponse(
-        repomap=data.get("repomap", ""),
-        summary=data.get("summary", ""),
         validations=[
             RuleValidationResponse(
                 rule=v["rule"],
@@ -258,7 +260,6 @@ def _parse_task_result(raw) -> TaskResultResponse | None:
                     FileMatchResponse(**f)
                     for f in v.get("related_files", [])
                 ],
-                match_count=len(v.get("related_files", [])),
                 evaluation=(
                     RuleEvaluationResponse(**v["evaluation"])
                     if v.get("evaluation")

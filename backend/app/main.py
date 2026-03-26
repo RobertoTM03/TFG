@@ -3,6 +3,8 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
 from loguru import logger
 
 from app.config import Settings
@@ -11,6 +13,7 @@ from app.infrastructure.websocket_manager import WebSocketManager
 from app.infrastructure.worker import TaskWorker
 
 from app.api.routes import auth, health, repos, rules, tasks, webhooks
+from app.infrastructure.limiter import limiter, init_limiter
 
 
 @asynccontextmanager
@@ -19,6 +22,7 @@ async def lifespan(application: FastAPI):
     Shutdown: stop the worker gracefully."""
 
     settings = Settings()
+    init_limiter(settings)
     for warning in settings.warn_if_incomplete():
         logger.warning(f"[config] {warning}")
 
@@ -54,6 +58,9 @@ app = FastAPI(
     version="1.0.0",
     lifespan=lifespan,
 )
+
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 # CORS -- allow the frontend to reach the API
 app.add_middleware(

@@ -60,9 +60,11 @@ class CrossCheckResponse(BaseModel):
     primary_verdict: str
     primary_confidence: float
     primary_model: str
+    primary_explanation: str = ""
     secondary_verdict: str
     secondary_confidence: float
     secondary_model: str
+    secondary_explanation: str = ""
     strategy_used: str  # "consensus" | "confidence" | "conservative"
     agreement: bool
 
@@ -70,14 +72,11 @@ class CrossCheckResponse(BaseModel):
 class RuleValidationResponse(BaseModel):
     rule: str
     related_files: List[FileMatchResponse]
-    match_count: int
     evaluation: Optional[RuleEvaluationResponse] = None
     cross_check: Optional[CrossCheckResponse] = None
 
 
 class TaskResultResponse(BaseModel):
-    repomap: str
-    summary: str = ""
     validations: List[RuleValidationResponse]
     embedding_model: str
     chunking_strategy: str
