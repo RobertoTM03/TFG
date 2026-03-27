@@ -57,6 +57,7 @@ app = FastAPI(
     ),
     version="1.0.0",
     lifespan=lifespan,
+    swagger_ui_parameters={"persistAuthorization": True},
 )
 
 app.state.limiter = limiter
