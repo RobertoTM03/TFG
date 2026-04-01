@@ -46,6 +46,9 @@ class Settings(BaseSettings):
     DELAY_BETWEEN_BATCHES: float = 4.0
     EMBEDDING_RPM: int = 0
 
+    # Rate Limiting (LLM) — shared across llm, llm_primary, llm_secondary
+    LLM_RPM: int = 0 # 0 = unlimited
+
     # Rate Limiting (API)
     RATE_LIMIT_VALIDATE: str = "10/minute"   # Critical endpoints (validate)
     RATE_LIMIT_DEFAULT: str = "100/minute"   # All other authenticated endpoints

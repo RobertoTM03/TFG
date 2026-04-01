@@ -20,7 +20,7 @@ from app.infrastructure.adapters.git_repository import GitRepositoryAdapter
 from app.infrastructure.adapters.tree_sitter_repomap import TreeSitterRepomapAdapter
 from app.infrastructure.adapters.gemini_llm import GeminiLLMAdapter
 from app.infrastructure.adapters.github_app_adapter import GitHubAppAdapter
-from app.infrastructure.rate_limiter import RateLimitedEmbeddings
+from app.infrastructure.rate_limiter import RateLimitedEmbeddings, RateLimitedLLM, _RpmSlot
 from app.infrastructure.database import Database
 
 EMBEDDING_REGISTRY = {
@@ -55,6 +55,7 @@ class Container:
         self._llm: LLMPort | None = None
         self._llm_primary: LLMPort | None = None
         self._llm_secondary: LLMPort | None = None
+        self._llm_slot: _RpmSlot | None = None
         self._cross_check_service: CrossCheckService | None = None
         self._database: Database | None = None
 
@@ -135,6 +136,20 @@ class Container:
                     self._repomap = TreeSitterRepomapAdapter()
         return self._repomap
 
+    # Shared RPM slot for all LLM instances
+    # (llm + llm_primary + llm_secondary count against the same quota)
+
+    @property
+    def _shared_llm_slot(self) -> _RpmSlot:
+        if self._llm_slot is None:
+            with self._lock:
+                if self._llm_slot is None:
+                    self._llm_slot = _RpmSlot(
+                        self._settings.LLM_RPM,
+                        label=f"LLM({self._settings.LLM_RPM} RPM)",
+                    )
+        return self._llm_slot
+
     # LLM
 
     @property
@@ -142,7 +157,7 @@ class Container:
         if self._llm is None:
             with self._lock:
                 if self._llm is None:
-                    self._llm = GeminiLLMAdapter(
+                    adapter = GeminiLLMAdapter(
                         settings=self._settings,
                         model_name=self._settings.LLM_MODEL,
                         max_context_tokens=self._settings.LLM_MAX_CONTEXT_TOKENS,
@@ -150,6 +165,7 @@ class Container:
                         max_retries=self._settings.LLM_MAX_RETRIES,
                         retry_base_delay=self._settings.LLM_RETRY_BASE_DELAY,
                     )
+                    self._llm = RateLimitedLLM(adapter, self._shared_llm_slot)
         return self._llm
 
     # Primary LLM (used when ENABLE_CROSS_CHECK=True)
@@ -159,7 +175,7 @@ class Container:
         if self._llm_primary is None:
             with self._lock:
                 if self._llm_primary is None:
-                    self._llm_primary = GeminiLLMAdapter(
+                    adapter = GeminiLLMAdapter(
                         settings=self._settings,
                         model_name=self._settings.LLM_PRIMARY_MODEL,
                         max_context_tokens=self._settings.LLM_MAX_CONTEXT_TOKENS,
@@ -167,6 +183,7 @@ class Container:
                         max_retries=self._settings.LLM_MAX_RETRIES,
                         retry_base_delay=self._settings.LLM_RETRY_BASE_DELAY,
                     )
+                    self._llm_primary = RateLimitedLLM(adapter, self._shared_llm_slot)
         return self._llm_primary
 
     # Secondary LLM (used when ENABLE_CROSS_CHECK=True)
@@ -176,7 +193,7 @@ class Container:
         if self._llm_secondary is None:
             with self._lock:
                 if self._llm_secondary is None:
-                    self._llm_secondary = GeminiLLMAdapter(
+                    adapter = GeminiLLMAdapter(
                         settings=self._settings,
                         model_name=self._settings.LLM_SECONDARY_MODEL,
                         max_context_tokens=self._settings.LLM_MAX_CONTEXT_TOKENS,
@@ -184,6 +201,7 @@ class Container:
                         max_retries=self._settings.LLM_MAX_RETRIES,
                         retry_base_delay=self._settings.LLM_RETRY_BASE_DELAY,
                     )
+                    self._llm_secondary = RateLimitedLLM(adapter, self._shared_llm_slot)
         return self._llm_secondary
 
     # Cross-Check Service
