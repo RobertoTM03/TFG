@@ -89,13 +89,8 @@ class TaskWorker:
             })
 
         try:
-            # Import here to avoid circular dependency at module level
-            from app.application.services.validation_service import (
-                ValidationService,
-            )
-
             enable_cross_check = bool(task.get("enable_cross_check", False))
-            service = ValidationService(self._container, self._settings)
+            service = self._container.validation_service
             result = service.validate(
                 repo_url, rules,
                 on_progress=on_progress,

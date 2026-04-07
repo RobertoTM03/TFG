@@ -1,6 +1,8 @@
 import threading
 
 from app.application.services.cross_check_service import CrossCheckService
+from app.application.services.health_service import HealthService
+from app.application.services.validation_service import ValidationService
 from app.config import Settings
 from app.domain.ports import (
     ChunkingPort,
@@ -58,6 +60,8 @@ class Container:
         self._llm_slot: _RpmSlot | None = None
         self._cross_check_service: CrossCheckService | None = None
         self._database: Database | None = None
+        self._health_service: HealthService | None = None
+        self._validation_service: ValidationService | None = None
 
     # Embedding
 
@@ -253,3 +257,38 @@ class Container:
                         dbname=self._settings.POSTGRES_DB,
                     )
         return self._database
+
+    # Application Services
+
+    @property
+    def health_service(self) -> HealthService:
+        if self._health_service is None:
+            with self._lock:
+                if self._health_service is None:
+                    self._health_service = HealthService(
+                        database=self.database,
+                        vector_store=self.vector_store,
+                        embedding=self.embedding,
+                        chunking=self.chunking,
+                    )
+        return self._health_service
+
+    @property
+    def validation_service(self) -> ValidationService:
+        if self._validation_service is None:
+            with self._lock:
+                if self._validation_service is None:
+                    self._validation_service = ValidationService(
+                        repository=self.repository,
+                        embedding=self.embedding,
+                        vector_store=self.vector_store,
+                        chunking=self.chunking,
+                        repomap=self.repomap,
+                        llm=self.llm,
+                        llm_primary=self.llm_primary,
+                        llm_secondary=self.llm_secondary,
+                        cross_check_service=self.cross_check_service,
+                        database=self.database,
+                        settings=self._settings,
+                    )
+        return self._validation_service

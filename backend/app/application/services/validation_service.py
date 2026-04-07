@@ -7,6 +7,7 @@ from typing import Callable, List, Optional, Tuple
 
 from loguru import logger
 
+from app.application.services.cross_check_service import CrossCheckService
 from app.config import Settings
 from app.domain.models.chunk import SearchResult
 from app.domain.models.evaluation import RuleEvaluation
@@ -15,7 +16,15 @@ from app.domain.models.validation_result import (
     RuleValidation,
     ValidationResult,
 )
-from app.infrastructure.container import Container
+from app.domain.ports import (
+    ChunkingPort,
+    EmbeddingPort,
+    LLMPort,
+    RepomapPort,
+    RepositoryPort,
+    VectorStorePort,
+)
+from app.infrastructure.database import Database
 
 # Lines of context kept around each chunk when truncating large files
 _CONTEXT_LINES = 20
@@ -26,8 +35,30 @@ ProgressCallback = Optional[Callable[[int, str], None]]
 class ValidationService:
     """Orchestrates the complete validation pipeline."""
 
-    def __init__(self, container: Container, settings: Settings) -> None:
-        self._c = container
+    def __init__(
+        self,
+        repository: RepositoryPort,
+        embedding: EmbeddingPort,
+        vector_store: VectorStorePort,
+        chunking: ChunkingPort,
+        repomap: RepomapPort,
+        llm: LLMPort,
+        llm_primary: LLMPort,
+        llm_secondary: LLMPort,
+        cross_check_service: CrossCheckService,
+        database: Database,
+        settings: Settings,
+    ) -> None:
+        self._repository = repository
+        self._embedding = embedding
+        self._vector_store = vector_store
+        self._chunking = chunking
+        self._repomap = repomap
+        self._llm = llm
+        self._llm_primary = llm_primary
+        self._llm_secondary = llm_secondary
+        self._cross_check_service = cross_check_service
+        self._database = database
         self._settings = settings
 
     # Public entry point
@@ -50,18 +81,18 @@ class ValidationService:
         try:
             # 1. Clone — use the authenticated URL if provided.
             _report(0, "Cloning repository...")
-            repo_path = self._c.repository.clone(clone_url or repository_url)
+            repo_path = self._repository.clone(clone_url or repository_url)
             _report(5, "Repository cloned")
 
-            model_name = self._c.embedding.name
-            strategy_name = self._c.chunking.name
+            model_name = self._embedding.name
+            strategy_name = self._chunking.name
             collection_name = self._collection_name(
                 repository_url, model_name, strategy_name,
             )
 
             # 2. Load files
             _report(8, "Loading source files...")
-            files = self._c.repository.load_files(repo_path)
+            files = self._repository.load_files(repo_path)
 
             # 3. Compute file hashes
             current_hashes = self._compute_file_hashes(files)
@@ -78,7 +109,7 @@ class ValidationService:
                 )
 
             # 4. Stored hashes
-            stored_hashes = self._c.database.get_file_hashes(
+            stored_hashes = self._database.get_file_hashes(
                 repository_url, model_name, strategy_name,
             )
 
@@ -96,7 +127,7 @@ class ValidationService:
 
             files_to_index = new_files | changed_files
             files_to_remove = deleted_files | changed_files
-            collection_ready = self._c.vector_store.collection_exists(
+            collection_ready = self._vector_store.collection_exists(
                 collection_name,
             )
 
@@ -129,14 +160,14 @@ class ValidationService:
 
                 # 6a. Remove stale
                 if files_to_remove and collection_ready:
-                    removed = self._c.vector_store.delete_by_sources(
+                    removed = self._vector_store.delete_by_sources(
                         collection_name, list(files_to_remove),
                     )
                     logger.info(f"Removed {removed} stale chunks")
 
                 # 6b. Hash entries for deleted files
                 if deleted_files:
-                    self._c.database.delete_file_hash_entries(
+                    self._database.delete_file_hash_entries(
                         repository_url, model_name, strategy_name,
                         list(deleted_files),
                     )
@@ -148,19 +179,19 @@ class ValidationService:
                         (path, content) for path, content in files
                         if path in files_to_index
                     ]
-                    chunks = self._c.chunking.chunk_files(files_to_chunk)
-                    
+                    chunks = self._chunking.chunk_files(files_to_chunk)
+
                     # Ensure repo_name is injected
                     repo_name_str = Path(repo_path).name
                     for chunk in chunks:
                         chunk.repo_name = repo_name_str
-                        
+
                     logger.info(
                         f"Split {len(files_to_chunk)} files "
                         f"into {len(chunks)} chunks"
                     )
 
-                    num_indexed = self._c.vector_store.index_documents(
+                    num_indexed = self._vector_store.index_documents(
                         chunks=chunks,
                         collection_name=collection_name,
                     )
@@ -169,16 +200,16 @@ class ValidationService:
                     )
 
                 # 6d. Update hashes
-                self._c.database.save_file_hashes(
+                self._database.save_file_hashes(
                     repository_url, model_name, strategy_name,
                     current_hashes,
                 )
 
                 # 6e. Update indexed_repositories
-                total = self._c.vector_store.collection_count(
+                total = self._vector_store.collection_count(
                     collection_name,
                 )
-                self._c.database.save_indexed_repo(
+                self._database.save_indexed_repo(
                     repo_url=repository_url,
                     collection_name=collection_name,
                     num_chunks=total,
@@ -188,7 +219,7 @@ class ValidationService:
 
             # 7. Repomap
             _report(70, "Generating repository map...")
-            repomap = self._c.repomap.generate(repo_path)
+            repomap = self._repomap.generate(repo_path)
 
             # 8. Similarity search per rule
             validations: List[RuleValidation] = []
@@ -197,7 +228,7 @@ class ValidationService:
                 _report(pct, f"Searching for rule {idx + 1}/{len(rules)}...")
                 logger.info(f"Searching for rule: {rule[:80]}...")
 
-                results = self._c.vector_store.similarity_search(
+                results = self._vector_store.similarity_search(
                     query=rule,
                     collection_name=collection_name,
                     threshold=self._settings.SIMILARITY_THRESHOLD,
@@ -219,9 +250,6 @@ class ValidationService:
             cross_check_active = enable_cross_check if enable_cross_check is not None else False
             if cross_check_active:
                 _report(80, "Evaluating rules with cross-check (dual-model)...")
-                llm_primary = self._c.llm_primary
-                llm_secondary = self._c.llm_secondary
-                cross_check_service = self._c.cross_check_service
                 for idx, validation in enumerate(validations):
                     pct = 80 + int((idx / max(len(validations), 1)) * 14)
                     _report(
@@ -243,10 +271,10 @@ class ValidationService:
                         repository_url=repository_url,
                     )
 
-                    primary_eval = llm_primary.evaluate_rule(**eval_kwargs)
-                    secondary_eval = llm_secondary.evaluate_rule(**eval_kwargs)
+                    primary_eval = self._llm_primary.evaluate_rule(**eval_kwargs)
+                    secondary_eval = self._llm_secondary.evaluate_rule(**eval_kwargs)
 
-                    cross_checked = cross_check_service.reconcile(
+                    cross_checked = self._cross_check_service.reconcile(
                         primary_eval, secondary_eval,
                     )
                     validation.evaluation = cross_checked.final
@@ -258,11 +286,10 @@ class ValidationService:
                         f"confidence={cross_checked.final.confidence:.0%}"
                     )
 
-                result_llm_model = llm_primary.name
+                result_llm_model = self._llm_primary.name
 
             else:
                 _report(80, "Evaluating rules with LLM...")
-                llm = self._c.llm
                 for idx, validation in enumerate(validations):
                     pct = 80 + int((idx / max(len(validations), 1)) * 14)
                     _report(
@@ -278,7 +305,7 @@ class ValidationService:
                         fm.file_content for fm in validation.related_files
                     ]
 
-                    evaluation = llm.evaluate_rule(
+                    evaluation = self._llm.evaluate_rule(
                         rule=validation.rule,
                         repomap=repomap,
                         file_contents=file_contents,
@@ -290,7 +317,7 @@ class ValidationService:
                         f"confidence={evaluation.confidence:.0%}"
                     )
 
-                result_llm_model = llm.name
+                result_llm_model = self._llm.name
 
             _report(98, "Building result...")
 
@@ -313,7 +340,7 @@ class ValidationService:
             raise
         finally:
             if repo_path:
-                self._c.repository.cleanup(repo_path)
+                self._repository.cleanup(repo_path)
 
     # Helpers
 
