@@ -131,6 +131,21 @@ class GeminiLLMAdapter(LLMPort):
                     config=config,
                 )
                 return response.text.strip()
+            except errors.ServerError as exc:
+                last_exc = exc
+                if server_error_attempts >= _SERVER_ERROR_MAX_RETRIES:
+                    logger.error(
+                        f"Gemini server error: all "
+                        f"{_SERVER_ERROR_MAX_RETRIES + 1} attempts exhausted."
+                    )
+                    raise
+                delay = 5.0 * (2 ** server_error_attempts)
+                server_error_attempts += 1
+                logger.warning(
+                    f"Gemini server error (attempt {server_error_attempts}/"
+                    f"{_SERVER_ERROR_MAX_RETRIES + 1}). Retrying in {delay:.0f}s..."
+                )
+                time.sleep(delay)
             except errors.ClientError as exc:
                 last_exc = exc
                 if exc.code == 429:
