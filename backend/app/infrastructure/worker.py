@@ -138,18 +138,27 @@ class TaskWorker:
             pr_head_sha = task.get("pr_head_sha")
 
             score = github_app.calculate_score(result_json)
-            threshold = self._settings.APPROVAL_THRESHOLD
+
+            # Use per-repo threshold if configured, fallback to global setting
+            repo_config = self._db.get_repo_config(
+                str(task["user_id"]), task["repository_full_name"]
+            ) if task.get("user_id") else None
+            threshold = repo_config["approval_threshold"] if repo_config else self._settings.APPROVAL_THRESHOLD
             approved = score >= threshold
 
             if pr_head_sha:
                 pct = int(score * 100)
-                desc = f"{'Aprobado' if approved else 'Cambios requeridos'} — {pct}% (umbral {int(threshold*100)}%)"
+                desc = f"{'Aprobado' if approved else 'Cambios requeridos'} — {pct}% (umbral {int(threshold * 100)}%)"
                 github_app.set_commit_status(
                     installation_id, owner_login, repo_name, pr_head_sha,
                     "success" if approved else "failure", desc,
                 )
 
-            body = github_app.build_comment(score, result_json, threshold)
+            # Eval number = how many tasks exist for this PR (including this one)
+            eval_number = self._db.count_pr_tasks(
+                task["repository_full_name"], pr_number
+            )
+            body = github_app.build_comment(score, result_json, threshold, eval_number)
             github_app.post_pr_comment(installation_id, owner_login, repo_name, pr_number, body)
 
             logger.info(

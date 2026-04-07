@@ -97,3 +97,20 @@ CREATE TABLE IF NOT EXISTS file_hashes (
 
 CREATE INDEX IF NOT EXISTS idx_file_hashes_lookup
     ON file_hashes (repository_url, embedding_model, chunking_strategy);
+
+-- Per-repository configuration set by teachers
+CREATE TABLE IF NOT EXISTS repo_configs (
+    id                      UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id                 UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    repository_full_name    TEXT NOT NULL,
+    max_evaluations_per_pr  INTEGER NOT NULL DEFAULT 3,
+    approval_threshold      FLOAT   NOT NULL DEFAULT 0.8,
+    enable_cross_check      BOOLEAN NOT NULL DEFAULT TRUE,
+    pr_evaluation_enabled   BOOLEAN NOT NULL DEFAULT TRUE,
+    created_at              TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at              TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    UNIQUE(user_id, repository_full_name)
+);
+
+CREATE INDEX IF NOT EXISTS idx_repo_configs_user_repo
+    ON repo_configs (user_id, repository_full_name);

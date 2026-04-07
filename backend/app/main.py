@@ -12,7 +12,7 @@ from app.infrastructure.container import Container
 from app.infrastructure.websocket_manager import WebSocketManager
 from app.infrastructure.worker import TaskWorker
 
-from app.api.routes import auth, health, repos, rules, tasks, webhooks
+from app.api.routes import auth, health, repos, rules, tasks, webhooks, repo_config
 from app.infrastructure.limiter import limiter, init_limiter
 
 
@@ -78,4 +78,5 @@ app.include_router(health.router)
 app.include_router(repos.router)
 app.include_router(rules.router)
 app.include_router(tasks.router)
+app.include_router(repo_config.router)
 app.include_router(webhooks.router)

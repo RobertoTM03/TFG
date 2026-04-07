@@ -540,6 +540,64 @@ class Database:
                 row = cur.fetchone()
             return dict(row) if row else None
 
+    # Repo configuration
+
+    def get_repo_config(
+        self, user_id: str, repo_full_name: str
+    ) -> Optional[Dict[str, Any]]:
+        """Return the config row for a repo, or None if not yet set."""
+        with self._conn() as conn:
+            with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+                cur.execute(
+                    """SELECT * FROM repo_configs
+                       WHERE user_id = %s AND repository_full_name = %s""",
+                    (user_id, repo_full_name),
+                )
+                row = cur.fetchone()
+            return dict(row) if row else None
+
+    def upsert_repo_config(
+        self,
+        user_id: str,
+        repo_full_name: str,
+        max_evaluations_per_pr: int,
+        approval_threshold: float,
+        enable_cross_check: bool,
+        pr_evaluation_enabled: bool,
+    ) -> Dict[str, Any]:
+        """Insert or update the config for a repo."""
+        with self._conn() as conn:
+            with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+                cur.execute(
+                    """INSERT INTO repo_configs
+                           (user_id, repository_full_name, max_evaluations_per_pr,
+                            approval_threshold, enable_cross_check, pr_evaluation_enabled)
+                       VALUES (%s, %s, %s, %s, %s, %s)
+                       ON CONFLICT (user_id, repository_full_name) DO UPDATE SET
+                           max_evaluations_per_pr = EXCLUDED.max_evaluations_per_pr,
+                           approval_threshold      = EXCLUDED.approval_threshold,
+                           enable_cross_check      = EXCLUDED.enable_cross_check,
+                           pr_evaluation_enabled   = EXCLUDED.pr_evaluation_enabled,
+                           updated_at              = NOW()
+                       RETURNING *""",
+                    (user_id, repo_full_name, max_evaluations_per_pr,
+                     approval_threshold, enable_cross_check, pr_evaluation_enabled),
+                )
+                row = cur.fetchone()
+            conn.commit()
+            return dict(row)
+
+    def count_pr_tasks(self, repo_full_name: str, pr_number: int) -> int:
+        """Count how many tasks have already been created for a given PR."""
+        with self._conn() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """SELECT COUNT(*) FROM tasks
+                       WHERE repository_full_name = %s AND pr_number = %s""",
+                    (repo_full_name, pr_number),
+                )
+                return cur.fetchone()[0]
+
     def delete_file_hash_entries(
         self,
         repo_url: str,

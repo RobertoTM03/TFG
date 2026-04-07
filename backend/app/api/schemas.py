@@ -118,6 +118,22 @@ class PaginatedResponse(BaseModel, Generic[T]):
     total_pages: int
 
 
+class RepoConfigResponse(BaseModel):
+    """Per-repository configuration managed by the teacher."""
+    max_evaluations_per_pr: int
+    approval_threshold: float
+    enable_cross_check: bool
+    pr_evaluation_enabled: bool
+
+
+class RepoConfigRequest(BaseModel):
+    """Body for PUT /api/repos/{owner}/{repo}/config."""
+    max_evaluations_per_pr: int = Field(default=3, ge=1, le=20)
+    approval_threshold: float = Field(default=0.8, ge=0.0, le=1.0)
+    enable_cross_check: bool = True
+    pr_evaluation_enabled: bool = True
+
+
 class HealthResponse(BaseModel):
     status: str
     components: Dict[str, bool]

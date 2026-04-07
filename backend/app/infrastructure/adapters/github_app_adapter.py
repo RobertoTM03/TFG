@@ -209,42 +209,84 @@ class GitHubAppAdapter(GitHubAppPort):
                 earned += 0.5
         return earned / len(validations)
 
-    def build_comment(self, score: float, result_json: dict, threshold: float) -> str:
+    def build_comment(
+        self,
+        score: float,
+        result_json: dict,
+        threshold: float,
+        eval_number: int = 1,
+    ) -> str:
+        validations = result_json.get("validations", [])
+        total = len(validations)
         pct = int(score * 100)
-        approved = score >= threshold
-        verdict_text = "Aprobado" if approved else "Cambios requeridos"
 
-        lines = [
-            "## Validacion automatica de repositorio",
-            "",
-            f"**Puntuacion:** {pct}% | **Umbral:** {int(threshold * 100)}% | **{verdict_text}**",
-            "",
-            "---",
-            "",
-            "### Resultados por regla",
+        # Classify rules
+        fails, partials, passes = [], [], []
+        for v in validations:
+            rule = v.get("rule", "")
+            cc = v.get("cross_check")
+            ev = v.get("evaluation") or {}
+            if cc:
+                verdict = cc.get("primary_verdict", "unknown")
+                explanation = cc.get("primary_explanation", "")
+            else:
+                verdict = ev.get("verdict", "unknown")
+                explanation = ev.get("explanation", "")
+            first = explanation.split(". ")[0].strip() if explanation else ""
+            if verdict == "pass":
+                passes.append(rule)
+            elif verdict == "partial":
+                partials.append((rule, first))
+            else:
+                fails.append((rule, first))
+
+        def _title(rule: str, max_len: int = 55) -> str:
+            return rule if len(rule) <= max_len else rule[:max_len - 1] + "…"
+
+        # Build the body inside a single code block so alignment is exact
+        body_lines = []
+
+        # Header box with Unicode borders
+        approved = score >= threshold
+        header_title  = f"EVALUACION AUTOMATICA #{eval_number}"
+        header_score  = f"Puntuacion: {pct}% ({len(passes)}/{total})"
+        header_result = f"{'APROBADO' if approved else 'NO APROBADO'}  (nota minima: {int(threshold * 100)}%)"
+        inner_w = max(len(header_title), len(header_score), len(header_result)) + 4
+        border_top    = "╔" + "═" * inner_w + "╗"
+        border_bottom = "╚" + "═" * inner_w + "╝"
+        body_lines += [
+            border_top,
+            "║" + header_title.center(inner_w) + "║",
+            "║" + header_score.center(inner_w) + "║",
+            "║" + header_result.center(inner_w) + "║",
+            border_bottom,
             "",
         ]
 
-        for v in result_json.get("validations", []):
-            rule = v.get("rule", "")
-            ev = v.get("evaluation") or {}
-            verdict = ev.get("verdict", "unknown")
+        if fails:
+            body_lines += ["NO CUMPLIDO", "─" * 11]
+            for rule, explanation in fails:
+                body_lines.append(f"[✗] {_title(rule)}")
+                if explanation:
+                    body_lines.append(f"    → {explanation}")
+            body_lines.append("")
 
-            if verdict == "pass":
-                prefix = "[PASS]"
-                detail = ""
-            elif verdict == "partial":
-                prefix = "[PARTIAL]"
-                explanation = ev.get("explanation", "")
-                first = explanation.split(". ")[0].strip() if explanation else ""
-                detail = f"\n  > {first}" if first else ""
-            else:
-                prefix = "[FAIL]"
-                explanation = ev.get("explanation", "")
-                first = explanation.split(". ")[0].strip() if explanation else ""
-                detail = f"\n  > {first}" if first else ""
+        if partials:
+            body_lines += ["PENDIENTE DE REVISION", "─" * 21]
+            for rule, explanation in partials:
+                body_lines.append(f"[~] {_title(rule)}")
+                if explanation:
+                    body_lines.append(f"    → {explanation}")
+            body_lines.append("")
 
-            lines.append(f"- {prefix} **{rule}**{detail}")
+        if passes:
+            body_lines += ["APROBADO", "─" * 8]
+            for rule in passes:
+                body_lines.append(f"[✓] {_title(rule)}")
+            body_lines.append("")
 
-        lines += ["", "---", "_Generado por ARV_"]
-        return "\n".join(lines)
+
+        # Wrap in a code block so the whole thing renders in monospace
+        code_block = "```\n" + "\n".join(body_lines) + "\n```"
+        footer = "\n---\n_Generado automaticamente por el validador de repositorios_"
+        return code_block + footer
