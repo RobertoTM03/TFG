@@ -611,6 +611,48 @@ class Database:
                 )
                 return cur.fetchone()[0]
 
+    # Students
+
+    def get_repo_students(
+        self, user_id: str, repo_full_name: str
+    ) -> List[Dict[str, Any]]:
+        """Return one row per student (pr_author) who has submitted to a repo,
+        with submission count and latest task info."""
+        with self._conn() as conn:
+            with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+                cur.execute(
+                    """WITH latest AS (
+                           SELECT DISTINCT ON (pr_author)
+                               pr_author,
+                               id            AS last_task_id,
+                               status        AS last_status,
+                               created_at    AS last_submitted_at
+                           FROM tasks
+                           WHERE user_id = %s
+                             AND repository_full_name = %s
+                             AND pr_author IS NOT NULL
+                           ORDER BY pr_author, created_at DESC
+                       ),
+                       counts AS (
+                           SELECT pr_author, COUNT(*) AS submissions
+                           FROM tasks
+                           WHERE user_id = %s
+                             AND repository_full_name = %s
+                             AND pr_author IS NOT NULL
+                           GROUP BY pr_author
+                       )
+                       SELECT l.pr_author,
+                              l.last_task_id,
+                              l.last_status,
+                              l.last_submitted_at,
+                              c.submissions
+                       FROM latest l
+                       JOIN counts c USING (pr_author)
+                       ORDER BY l.last_submitted_at DESC""",
+                    (user_id, repo_full_name, user_id, repo_full_name),
+                )
+                return [dict(r) for r in cur.fetchall()]
+
     def delete_file_hash_entries(
         self,
         repo_url: str,

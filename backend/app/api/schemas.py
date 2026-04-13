@@ -141,6 +141,15 @@ class RepoConfigRequest(BaseModel):
     pr_evaluation_enabled: bool = True
 
 
+class StudentSummaryResponse(BaseModel):
+    """Aggregated view of a student's submissions for a single repository."""
+    pr_author: str
+    submissions: int
+    last_status: Optional[str] = None
+    last_submitted_at: Optional[str] = None
+    last_task_id: Optional[str] = None
+
+
 class HealthResponse(BaseModel):
     status: str
     components: Dict[str, bool]
