@@ -91,6 +91,9 @@ class TaskSummaryResponse(BaseModel):
     progress: int
     progress_message: str
     created_at: str
+    completed_at: Optional[str] = None
+    pr_number: Optional[int] = None
+    pr_author: Optional[str] = None
 
 
 class TaskDetailResponse(BaseModel):
@@ -107,6 +110,10 @@ class TaskDetailResponse(BaseModel):
     created_at: str
     started_at: Optional[str] = None
     completed_at: Optional[str] = None
+    pr_number: Optional[int] = None
+    pr_head_sha: Optional[str] = None
+    pr_author: Optional[str] = None
+    enable_cross_check: bool = False
 
 
 class PaginatedResponse(BaseModel, Generic[T]):

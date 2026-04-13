@@ -94,15 +94,28 @@ async def list_tasks(
     repository_full_name: Optional[str] = Query(
         None, description="Filter by repository (e.g. owner/repo)"
     ),
+    pr_author: Optional[str] = Query(
+        None, description="Filter by PR author GitHub login"
+    ),
+    status: Optional[str] = Query(
+        None, description="Filter by task status (pending, running, completed, failed)"
+    ),
 ):
     db = request.app.state.database
     user_id = str(user["id"])
-    total = db.count_user_tasks(user_id, repository_full_name=repository_full_name)
+    total = db.count_user_tasks(
+        user_id,
+        repository_full_name=repository_full_name,
+        pr_author=pr_author,
+        status=status,
+    )
     rows = db.get_user_tasks(
         user_id,
         page=page, page_size=page_size,
         sort_by=sort_by, sort_order=sort_order,
         repository_full_name=repository_full_name,
+        pr_author=pr_author,
+        status=status,
     )
 
     total_pages = max(1, -(-total // page_size))
@@ -116,6 +129,9 @@ async def list_tasks(
                 progress=t.get("progress", 0),
                 progress_message=t.get("progress_message", ""),
                 created_at=str(t["created_at"]),
+                completed_at=str(t["completed_at"]) if t.get("completed_at") else None,
+                pr_number=t.get("pr_number"),
+                pr_author=t.get("pr_author"),
             )
             for t in rows
         ],
@@ -162,9 +178,11 @@ async def get_task(
         error=task.get("error"),
         created_at=str(task["created_at"]),
         started_at=str(task["started_at"]) if task.get("started_at") else None,
-        completed_at=(
-            str(task["completed_at"]) if task.get("completed_at") else None
-        ),
+        completed_at=str(task["completed_at"]) if task.get("completed_at") else None,
+        pr_number=task.get("pr_number"),
+        pr_head_sha=task.get("pr_head_sha"),
+        pr_author=task.get("pr_author"),
+        enable_cross_check=task.get("enable_cross_check", False),
     )
 
 

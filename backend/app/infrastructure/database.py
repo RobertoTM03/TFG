@@ -8,7 +8,7 @@ import psycopg2.pool
 from loguru import logger
 
 # Whitelisted sort columns per entity
-_TASK_SORT_COLUMNS = {"created_at", "status", "repository_full_name", "progress"}
+_TASK_SORT_COLUMNS = {"created_at", "status", "repository_full_name", "progress", "completed_at", "pr_number"}
 _RULE_SORT_COLUMNS = {"position", "rule_text"}
 
 _POOL_MIN = 2
@@ -233,6 +233,7 @@ class Database:
         enable_cross_check: bool = False,
         pr_number: Optional[int] = None,
         pr_head_sha: Optional[str] = None,
+        pr_author: Optional[str] = None,
         github_installation_id: Optional[int] = None,
     ) -> Dict[str, Any]:
         with self._conn() as conn:
@@ -243,12 +244,14 @@ class Database:
                     """INSERT INTO tasks
                            (user_id, repository_url, repository_full_name,
                             rules, status, enable_cross_check,
-                            pr_number, pr_head_sha, github_installation_id)
-                       VALUES (%s, %s, %s, %s, 'pending', %s, %s, %s, %s)
+                            pr_number, pr_head_sha, pr_author,
+                            github_installation_id)
+                       VALUES (%s, %s, %s, %s, 'pending', %s, %s, %s, %s, %s)
                        RETURNING *""",
                     (user_id, repository_url, repository_full_name,
                      json.dumps(rules), enable_cross_check,
-                     pr_number, pr_head_sha, github_installation_id),
+                     pr_number, pr_head_sha, pr_author,
+                     github_installation_id),
                 )
                 row = cur.fetchone()
             conn.commit()
@@ -279,21 +282,27 @@ class Database:
                 return cur.fetchone() is not None
 
     def count_user_tasks(
-        self, user_id: str, repository_full_name: Optional[str] = None,
+        self,
+        user_id: str,
+        repository_full_name: Optional[str] = None,
+        pr_author: Optional[str] = None,
+        status: Optional[str] = None,
     ) -> int:
+        conditions = ["user_id = %s"]
+        params: List[Any] = [user_id]
+        if repository_full_name:
+            conditions.append("repository_full_name = %s")
+            params.append(repository_full_name)
+        if pr_author:
+            conditions.append("pr_author = %s")
+            params.append(pr_author)
+        if status:
+            conditions.append("status = %s")
+            params.append(status)
+        where = " AND ".join(conditions)
         with self._conn() as conn:
             with conn.cursor() as cur:
-                if repository_full_name:
-                    cur.execute(
-                        """SELECT COUNT(*) FROM tasks
-                           WHERE user_id = %s AND repository_full_name = %s""",
-                        (user_id, repository_full_name),
-                    )
-                else:
-                    cur.execute(
-                        "SELECT COUNT(*) FROM tasks WHERE user_id = %s",
-                        (user_id,),
-                    )
+                cur.execute(f"SELECT COUNT(*) FROM tasks WHERE {where}", params)
                 return cur.fetchone()[0]
 
     def get_user_tasks(
@@ -304,30 +313,34 @@ class Database:
         sort_by: str = "created_at",
         sort_order: str = "desc",
         repository_full_name: Optional[str] = None,
+        pr_author: Optional[str] = None,
+        status: Optional[str] = None,
     ) -> List[Dict[str, Any]]:
         col = sort_by if sort_by in _TASK_SORT_COLUMNS else "created_at"
         order = "DESC" if sort_order.lower() == "desc" else "ASC"
         offset = (page - 1) * page_size
+        conditions = ["user_id = %s"]
+        params: List[Any] = [user_id]
+        if repository_full_name:
+            conditions.append("repository_full_name = %s")
+            params.append(repository_full_name)
+        if pr_author:
+            conditions.append("pr_author = %s")
+            params.append(pr_author)
+        if status:
+            conditions.append("status = %s")
+            params.append(status)
+        where = " AND ".join(conditions)
+        params += [page_size, offset]
         with self._conn() as conn:
-            with conn.cursor(
-                cursor_factory=psycopg2.extras.RealDictCursor,
-            ) as cur:
-                if repository_full_name:
-                    cur.execute(
-                        f"""SELECT * FROM tasks
-                            WHERE user_id = %s AND repository_full_name = %s
-                            ORDER BY {col} {order}
-                            LIMIT %s OFFSET %s""",
-                        (user_id, repository_full_name, page_size, offset),
-                    )
-                else:
-                    cur.execute(
-                        f"""SELECT * FROM tasks
-                            WHERE user_id = %s
-                            ORDER BY {col} {order}
-                            LIMIT %s OFFSET %s""",
-                        (user_id, page_size, offset),
-                    )
+            with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+                cur.execute(
+                    f"""SELECT * FROM tasks
+                        WHERE {where}
+                        ORDER BY {col} {order}
+                        LIMIT %s OFFSET %s""",
+                    params,
+                )
                 return [dict(r) for r in cur.fetchall()]
 
     def claim_pending_task(self) -> Optional[Dict[str, Any]]:

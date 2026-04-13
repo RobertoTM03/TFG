@@ -77,6 +77,7 @@ async def _handle_pull_request(payload: dict, request: Request) -> dict:
     repo_full_name: str = payload["repository"]["full_name"]
     pr_number: int = payload["pull_request"]["number"]
     pr_head_sha: str = payload["pull_request"]["head"]["sha"]
+    pr_author: str = payload["pull_request"]["user"]["login"]
     clone_url: str = payload["repository"]["clone_url"]
 
     db = request.app.state.database
@@ -147,6 +148,7 @@ async def _handle_pull_request(payload: dict, request: Request) -> dict:
         enable_cross_check=enable_cross_check,
         pr_number=pr_number,
         pr_head_sha=pr_head_sha,
+        pr_author=pr_author,
         github_installation_id=installation_id,
     )
 

@@ -53,13 +53,16 @@ CREATE TABLE IF NOT EXISTS tasks (
     github_installation_id BIGINT,
     pr_number              INTEGER,
     pr_head_sha            TEXT,
+    pr_author              TEXT,
     created_at             TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     started_at             TIMESTAMP WITH TIME ZONE,
     completed_at           TIMESTAMP WITH TIME ZONE
 );
 
-CREATE INDEX IF NOT EXISTS idx_tasks_user   ON tasks (user_id);
-CREATE INDEX IF NOT EXISTS idx_tasks_status ON tasks (status);
+CREATE INDEX IF NOT EXISTS idx_tasks_user      ON tasks (user_id);
+CREATE INDEX IF NOT EXISTS idx_tasks_status    ON tasks (status);
+CREATE INDEX IF NOT EXISTS idx_tasks_pr_author ON tasks (pr_author);
+CREATE INDEX IF NOT EXISTS idx_tasks_repo_pr   ON tasks (repository_full_name, pr_number);
 
 -- Shared task access (view-only grants)
 CREATE TABLE IF NOT EXISTS task_viewers (
