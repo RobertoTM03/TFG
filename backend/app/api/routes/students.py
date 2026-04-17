@@ -5,6 +5,9 @@ from fastapi import APIRouter, Depends, Query, Request
 from app.api.dependencies import get_current_user
 from app.api.schemas import (
     PaginatedResponse,
+    StudentOverviewResponse,
+    StudentRepoScoreResponse,
+    StudentSummaryDetailResponse,
     StudentSummaryResponse,
     TaskSummaryResponse,
 )
@@ -40,6 +43,100 @@ async def list_repo_students(
         )
         for r in rows
     ]
+
+
+@router.get(
+    "/students",
+    response_model=list[StudentOverviewResponse],
+    summary="List all students across all repositories of the professor",
+)
+@limiter.limit(rate_limit_default)
+async def list_all_students(
+    request: Request,
+    user: dict = Depends(get_current_user),
+):
+    """Return one entry per student (pr_author) across every repository owned
+    by the authenticated professor, including their best score (0–10)."""
+    db = request.app.state.database
+    rows = db.get_all_students(str(user["id"]))
+    return [
+        StudentOverviewResponse(
+            pr_author=r["pr_author"],
+            total_submissions=r["total_submissions"],
+            completed_submissions=r["completed_submissions"],
+            repo_count=r["repo_count"],
+            best_score=float(round(r["best_score"], 2)) if r.get("best_score") is not None else None,
+            last_status=r["last_status"],
+            last_submitted_at=str(r["last_submitted_at"]) if r.get("last_submitted_at") else None,
+            last_task_id=str(r["last_task_id"]) if r.get("last_task_id") else None,
+        )
+        for r in rows
+    ]
+
+
+@router.get(
+    "/students/{github_login}/summary",
+    response_model=StudentSummaryDetailResponse,
+    summary="Per-repository score breakdown for a student",
+)
+@limiter.limit(rate_limit_default)
+async def get_student_summary(
+    github_login: str,
+    request: Request,
+    user: dict = Depends(get_current_user),
+):
+    """Return per-repository stats and rule-verdict breakdown for a student,
+    computed from all completed evaluation tasks."""
+    db = request.app.state.database
+    rows = db.get_student_repo_scores(str(user["id"]), github_login)
+
+    repo_scores: list[StudentRepoScoreResponse] = []
+    total_submissions = 0
+    completed_submissions = 0
+    best_overall: Optional[float] = None
+
+    for r in rows:
+        total_submissions += r["total_submissions"]
+        completed_submissions += r["completed_submissions"]
+
+        pass_count = partial_count = fail_count = 0
+        best_result = r.get("best_result")
+        if best_result and isinstance(best_result, dict):
+            for v in best_result.get("validations", []):
+                verdict = (v.get("evaluation") or {}).get("verdict", "fail")
+                if verdict == "pass":
+                    pass_count += 1
+                elif verdict == "partial":
+                    partial_count += 1
+                else:
+                    fail_count += 1
+
+        best_score = float(round(r["best_score"], 2)) if r.get("best_score") is not None else None
+        if best_score is not None and (best_overall is None or best_score > best_overall):
+            best_overall = best_score
+
+        repo_scores.append(
+            StudentRepoScoreResponse(
+                repository_full_name=r["repository_full_name"],
+                total_submissions=r["total_submissions"],
+                completed_submissions=r["completed_submissions"],
+                best_score=best_score,
+                best_task_id=str(r["best_task_id"]) if r.get("best_task_id") else None,
+                best_pr_number=r.get("best_pr_number"),
+                pass_count=pass_count,
+                partial_count=partial_count,
+                fail_count=fail_count,
+                last_submitted_at=str(r["last_submitted_at"]) if r.get("last_submitted_at") else None,
+            )
+        )
+
+    return StudentSummaryDetailResponse(
+        pr_author=github_login,
+        best_score_overall=best_overall,
+        total_submissions=total_submissions,
+        completed_submissions=completed_submissions,
+        repos=repo_scores,
+    )
 
 
 @router.get(

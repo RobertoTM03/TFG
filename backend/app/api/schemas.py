@@ -150,6 +150,41 @@ class StudentSummaryResponse(BaseModel):
     last_task_id: Optional[str] = None
 
 
+class StudentOverviewResponse(BaseModel):
+    """Aggregated view of a student across ALL repositories of the professor."""
+    pr_author: str
+    total_submissions: int
+    completed_submissions: int
+    repo_count: int
+    best_score: Optional[float] = None  # 0–10; None if no completed tasks yet
+    last_status: Optional[str] = None
+    last_submitted_at: Optional[str] = None
+    last_task_id: Optional[str] = None
+
+
+class StudentRepoScoreResponse(BaseModel):
+    """Per-repository breakdown for one student."""
+    repository_full_name: str
+    total_submissions: int
+    completed_submissions: int
+    best_score: Optional[float] = None  # 0–10
+    best_task_id: Optional[str] = None
+    best_pr_number: Optional[int] = None
+    pass_count: int = 0
+    partial_count: int = 0
+    fail_count: int = 0
+    last_submitted_at: Optional[str] = None
+
+
+class StudentSummaryDetailResponse(BaseModel):
+    """Full summary for a single student: overall stats + per-repo breakdown."""
+    pr_author: str
+    best_score_overall: Optional[float] = None
+    total_submissions: int = 0
+    completed_submissions: int = 0
+    repos: List[StudentRepoScoreResponse] = []
+
+
 class HealthResponse(BaseModel):
     status: str
     components: Dict[str, bool]
