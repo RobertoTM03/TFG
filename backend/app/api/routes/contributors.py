@@ -4,37 +4,36 @@ from fastapi import APIRouter, Depends, Query, Request
 
 from app.api.dependencies import get_current_user
 from app.api.schemas import (
+    ContributorDetailResponse,
+    ContributorOverviewResponse,
+    ContributorRepoStatsResponse,
+    ContributorSummaryResponse,
     PaginatedResponse,
-    StudentOverviewResponse,
-    StudentRepoScoreResponse,
-    StudentSummaryDetailResponse,
-    StudentSummaryResponse,
     TaskSummaryResponse,
 )
 from app.infrastructure.limiter import limiter, rate_limit_default
 
-router = APIRouter(prefix="/api", tags=["Students"])
+router = APIRouter(prefix="/api", tags=["Contributors"])
 
 
 @router.get(
-    "/repos/{owner}/{repo}/students",
-    response_model=list[StudentSummaryResponse],
-    summary="List students who have submitted PRs to a repository",
+    "/repos/{owner}/{repo}/contributors",
+    response_model=list[ContributorSummaryResponse],
+    summary="List contributors who have submitted PRs to a repository",
 )
 @limiter.limit(rate_limit_default)
-async def list_repo_students(
+async def list_repo_contributors(
     owner: str,
     repo: str,
     request: Request,
     user: dict = Depends(get_current_user),
 ):
-    """Return one entry per student (pr_author) who has opened a PR against
-    this repository, with their submission count and the status of their
-    most recent evaluation."""
+    """Return one entry per contributor (pr_author) who has opened a PR against
+    this repository, with their submission count and most recent evaluation status."""
     db = request.app.state.database
-    rows = db.get_repo_students(str(user["id"]), f"{owner}/{repo}")
+    rows = db.get_repo_contributors(str(user["id"]), f"{owner}/{repo}")
     return [
-        StudentSummaryResponse(
+        ContributorSummaryResponse(
             pr_author=r["pr_author"],
             submissions=r["submissions"],
             last_status=r["last_status"],
@@ -46,26 +45,25 @@ async def list_repo_students(
 
 
 @router.get(
-    "/students",
-    response_model=list[StudentOverviewResponse],
-    summary="List all students across all repositories of the professor",
+    "/contributors",
+    response_model=list[ContributorOverviewResponse],
+    summary="List all contributors across all repositories",
 )
 @limiter.limit(rate_limit_default)
-async def list_all_students(
+async def list_all_contributors(
     request: Request,
     user: dict = Depends(get_current_user),
 ):
-    """Return one entry per student (pr_author) across every repository owned
-    by the authenticated professor, including their best score (0–10)."""
+    """Return one entry per contributor (pr_author) across every repository owned
+    by the authenticated user."""
     db = request.app.state.database
-    rows = db.get_all_students(str(user["id"]))
+    rows = db.get_all_contributors(str(user["id"]))
     return [
-        StudentOverviewResponse(
+        ContributorOverviewResponse(
             pr_author=r["pr_author"],
             total_submissions=r["total_submissions"],
             completed_submissions=r["completed_submissions"],
             repo_count=r["repo_count"],
-            avg_score=float(round(r["avg_score"], 2)) if r.get("avg_score") is not None else None,
             last_status=r["last_status"],
             last_submitted_at=str(r["last_submitted_at"]) if r.get("last_submitted_at") else None,
             last_task_id=str(r["last_task_id"]) if r.get("last_task_id") else None,
@@ -75,25 +73,24 @@ async def list_all_students(
 
 
 @router.get(
-    "/students/{github_login}/summary",
-    response_model=StudentSummaryDetailResponse,
-    summary="Per-repository score breakdown for a student",
+    "/contributors/{github_login}/summary",
+    response_model=ContributorDetailResponse,
+    summary="Per-repository rule-verdict breakdown for a contributor",
 )
 @limiter.limit(rate_limit_default)
-async def get_student_summary(
+async def get_contributor_summary(
     github_login: str,
     request: Request,
     user: dict = Depends(get_current_user),
 ):
-    """Return per-repository stats and rule-verdict breakdown for a student,
-    computed from all completed evaluation tasks."""
+    """Return per-repository stats and rule-verdict counts for a contributor,
+    derived from their most recent completed evaluation per repository."""
     db = request.app.state.database
-    rows = db.get_student_repo_scores(str(user["id"]), github_login)
+    rows = db.get_contributor_repo_stats(str(user["id"]), github_login)
 
-    repo_scores: list[StudentRepoScoreResponse] = []
+    repo_stats: list[ContributorRepoStatsResponse] = []
     total_submissions = 0
     completed_submissions = 0
-    best_overall: Optional[float] = None
 
     for r in rows:
         total_submissions += r["total_submissions"]
@@ -111,16 +108,11 @@ async def get_student_summary(
                 else:
                     fail_count += 1
 
-        best_score = float(round(r["best_score"], 2)) if r.get("best_score") is not None else None
-        if best_score is not None and (best_overall is None or best_score > best_overall):
-            best_overall = best_score
-
-        repo_scores.append(
-            StudentRepoScoreResponse(
+        repo_stats.append(
+            ContributorRepoStatsResponse(
                 repository_full_name=r["repository_full_name"],
                 total_submissions=r["total_submissions"],
                 completed_submissions=r["completed_submissions"],
-                best_score=best_score,
                 best_task_id=str(r["best_task_id"]) if r.get("best_task_id") else None,
                 best_pr_number=r.get("best_pr_number"),
                 pass_count=pass_count,
@@ -130,22 +122,21 @@ async def get_student_summary(
             )
         )
 
-    return StudentSummaryDetailResponse(
+    return ContributorDetailResponse(
         pr_author=github_login,
-        best_score_overall=best_overall,
         total_submissions=total_submissions,
         completed_submissions=completed_submissions,
-        repos=repo_scores,
+        repos=repo_stats,
     )
 
 
 @router.get(
-    "/students/{github_login}/tasks",
+    "/contributors/{github_login}/tasks",
     response_model=PaginatedResponse[TaskSummaryResponse],
-    summary="List all evaluations for a student across all repositories",
+    summary="List all evaluations for a contributor across all repositories",
 )
 @limiter.limit(rate_limit_default)
-async def list_student_tasks(
+async def list_contributor_tasks(
     github_login: str,
     request: Request,
     user: dict = Depends(get_current_user),
@@ -158,8 +149,8 @@ async def list_student_tasks(
         None, description="Filter by task status (pending, running, completed, failed)"
     ),
 ):
-    """Return all evaluation tasks for a given student (GitHub login) scoped
-    to the authenticated professor's repositories."""
+    """Return all evaluation tasks for a given contributor (GitHub login) scoped
+    to the authenticated user's repositories."""
     db = request.app.state.database
     user_id = str(user["id"])
 

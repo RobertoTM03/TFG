@@ -611,12 +611,12 @@ class Database:
                 )
                 return cur.fetchone()[0]
 
-    # Students
+    # Contributors
 
-    def get_repo_students(
+    def get_repo_contributors(
         self, user_id: str, repo_full_name: str
     ) -> List[Dict[str, Any]]:
-        """Return one row per student (pr_author) who has submitted to a repo,
+        """Return one row per contributor (pr_author) who has submitted to a repo,
         with submission count and latest task info."""
         with self._conn() as conn:
             with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
@@ -653,32 +653,19 @@ class Database:
                 )
                 return [dict(r) for r in cur.fetchall()]
 
-    def get_all_students(self, user_id: str) -> List[Dict[str, Any]]:
-        """Return one row per student (pr_author) across ALL repositories owned
-        by this user, with aggregated counts and best score (0-10)."""
+    def get_all_contributors(self, user_id: str) -> List[Dict[str, Any]]:
+        """Return one row per contributor (pr_author) across all repositories
+        owned by this user, with aggregated submission counts."""
         with self._conn() as conn:
             with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
                 cur.execute(
-                    """WITH task_scores AS (
+                    """WITH task_agg AS (
                            SELECT
                                pr_author,
                                id,
                                status,
                                repository_full_name,
-                               created_at,
-                               CASE
-                                   WHEN status = 'completed' AND result IS NOT NULL
-                                   THEN (
-                                       SELECT AVG(CASE
-                                           WHEN (v->'evaluation'->>'verdict') = 'pass'    THEN 10.0
-                                           WHEN (v->'evaluation'->>'verdict') = 'partial' THEN  5.0
-                                           ELSE 0.0
-                                       END)
-                                       FROM jsonb_array_elements(result->'validations') v
-                                       WHERE v->'evaluation' IS NOT NULL
-                                   )
-                                   ELSE NULL
-                               END AS score
+                               created_at
                            FROM tasks
                            WHERE user_id = %s
                              AND pr_author IS NOT NULL
@@ -690,7 +677,7 @@ class Database:
                                id            AS last_task_id,
                                status        AS last_status,
                                created_at    AS last_submitted_at
-                           FROM task_scores
+                           FROM task_agg
                            ORDER BY pr_author, created_at DESC
                        ),
                        agg AS (
@@ -698,9 +685,8 @@ class Database:
                                pr_author,
                                COUNT(*)                                          AS total_submissions,
                                COUNT(*) FILTER (WHERE status = 'completed')      AS completed_submissions,
-                               COUNT(DISTINCT repository_full_name)              AS repo_count,
-                               AVG(score)                                        AS avg_score
-                           FROM task_scores
+                               COUNT(DISTINCT repository_full_name)              AS repo_count
+                           FROM task_agg
                            GROUP BY pr_author
                        )
                        SELECT
@@ -708,7 +694,6 @@ class Database:
                            a.total_submissions,
                            a.completed_submissions,
                            a.repo_count,
-                           a.best_score,
                            l.last_task_id,
                            l.last_status,
                            l.last_submitted_at
@@ -719,51 +704,37 @@ class Database:
                 )
                 return [dict(r) for r in cur.fetchall()]
 
-    def get_student_repo_scores(
+    def get_contributor_repo_stats(
         self, user_id: str, github_login: str
     ) -> List[Dict[str, Any]]:
-        """Return one row per repository the student has submitted to, with
-        per-repo submission counts, best score, and rule-verdict breakdown of
-        the best completed task."""
+        """Return one row per repository the contributor has submitted to, with
+        per-repo submission counts and the rule-verdict breakdown of their most
+        recent completed task."""
         with self._conn() as conn:
             with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
                 cur.execute(
-                    """WITH task_scores AS (
+                    """WITH contributor_tasks AS (
                            SELECT
                                id,
                                repository_full_name,
                                pr_number,
                                created_at,
                                status,
-                               result,
-                               CASE
-                                   WHEN status = 'completed' AND result IS NOT NULL
-                                   THEN (
-                                       SELECT AVG(CASE
-                                           WHEN (v->'evaluation'->>'verdict') = 'pass'    THEN 10.0
-                                           WHEN (v->'evaluation'->>'verdict') = 'partial' THEN  5.0
-                                           ELSE 0.0
-                                       END)
-                                       FROM jsonb_array_elements(result->'validations') v
-                                       WHERE v->'evaluation' IS NOT NULL
-                                   )
-                                   ELSE NULL
-                               END AS score
+                               result
                            FROM tasks
                            WHERE user_id = %s
                              AND pr_author = %s
                              AND pr_author IS NOT NULL
                        ),
-                       best_per_repo AS (
+                       latest_completed_per_repo AS (
                            SELECT DISTINCT ON (repository_full_name)
                                repository_full_name,
-                               id          AS best_task_id,
-                               pr_number   AS best_pr_number,
-                               score       AS best_score,
-                               result      AS best_result
-                           FROM task_scores
-                           WHERE score IS NOT NULL
-                           ORDER BY repository_full_name, score DESC, created_at DESC
+                               id        AS best_task_id,
+                               pr_number AS best_pr_number,
+                               result    AS best_result
+                           FROM contributor_tasks
+                           WHERE status = 'completed' AND result IS NOT NULL
+                           ORDER BY repository_full_name, created_at DESC
                        ),
                        repo_stats AS (
                            SELECT
@@ -771,7 +742,7 @@ class Database:
                                COUNT(*)                                         AS total_submissions,
                                COUNT(*) FILTER (WHERE status = 'completed')     AS completed_submissions,
                                MAX(created_at)                                  AS last_submitted_at
-                           FROM task_scores
+                           FROM contributor_tasks
                            GROUP BY repository_full_name
                        )
                        SELECT
@@ -779,12 +750,11 @@ class Database:
                            rs.total_submissions,
                            rs.completed_submissions,
                            rs.last_submitted_at,
-                           bp.best_score,
-                           bp.best_task_id,
-                           bp.best_pr_number,
-                           bp.best_result
+                           lc.best_task_id,
+                           lc.best_pr_number,
+                           lc.best_result
                        FROM repo_stats rs
-                       LEFT JOIN best_per_repo bp USING (repository_full_name)
+                       LEFT JOIN latest_completed_per_repo lc USING (repository_full_name)
                        ORDER BY rs.last_submitted_at DESC""",
                     (user_id, github_login),
                 )

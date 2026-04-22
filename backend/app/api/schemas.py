@@ -126,7 +126,7 @@ class PaginatedResponse(BaseModel, Generic[T]):
 
 
 class RepoConfigResponse(BaseModel):
-    """Per-repository configuration managed by the teacher."""
+    """Per-repository configuration."""
     max_evaluations_per_pr: int
     approval_threshold: float
     enable_cross_check: bool
@@ -141,8 +141,8 @@ class RepoConfigRequest(BaseModel):
     pr_evaluation_enabled: bool = True
 
 
-class StudentSummaryResponse(BaseModel):
-    """Aggregated view of a student's submissions for a single repository."""
+class ContributorSummaryResponse(BaseModel):
+    """Aggregated view of a contributor's submissions for a single repository."""
     pr_author: str
     submissions: int
     last_status: Optional[str] = None
@@ -150,24 +150,22 @@ class StudentSummaryResponse(BaseModel):
     last_task_id: Optional[str] = None
 
 
-class StudentOverviewResponse(BaseModel):
-    """Aggregated view of a student across ALL repositories of the professor."""
+class ContributorOverviewResponse(BaseModel):
+    """Aggregated view of a contributor across all repositories of the owner."""
     pr_author: str
     total_submissions: int
     completed_submissions: int
     repo_count: int
-    avg_score: Optional[float] = None  # 0–10 average across all completed tasks; None if none yet
     last_status: Optional[str] = None
     last_submitted_at: Optional[str] = None
     last_task_id: Optional[str] = None
 
 
-class StudentRepoScoreResponse(BaseModel):
-    """Per-repository breakdown for one student."""
+class ContributorRepoStatsResponse(BaseModel):
+    """Per-repository breakdown for one contributor."""
     repository_full_name: str
     total_submissions: int
     completed_submissions: int
-    best_score: Optional[float] = None  # 0–10
     best_task_id: Optional[str] = None
     best_pr_number: Optional[int] = None
     pass_count: int = 0
@@ -176,13 +174,12 @@ class StudentRepoScoreResponse(BaseModel):
     last_submitted_at: Optional[str] = None
 
 
-class StudentSummaryDetailResponse(BaseModel):
-    """Full summary for a single student: overall stats + per-repo breakdown."""
+class ContributorDetailResponse(BaseModel):
+    """Full summary for a single contributor: overall stats + per-repo breakdown."""
     pr_author: str
-    best_score_overall: Optional[float] = None
     total_submissions: int = 0
     completed_submissions: int = 0
-    repos: List[StudentRepoScoreResponse] = []
+    repos: List[ContributorRepoStatsResponse] = []
 
 
 class HealthResponse(BaseModel):
