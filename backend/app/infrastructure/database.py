@@ -699,7 +699,7 @@ class Database:
                                COUNT(*)                                          AS total_submissions,
                                COUNT(*) FILTER (WHERE status = 'completed')      AS completed_submissions,
                                COUNT(DISTINCT repository_full_name)              AS repo_count,
-                               MAX(score)                                        AS best_score
+                               AVG(score)                                        AS avg_score
                            FROM task_scores
                            GROUP BY pr_author
                        )

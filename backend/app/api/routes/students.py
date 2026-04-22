@@ -65,7 +65,7 @@ async def list_all_students(
             total_submissions=r["total_submissions"],
             completed_submissions=r["completed_submissions"],
             repo_count=r["repo_count"],
-            best_score=float(round(r["best_score"], 2)) if r.get("best_score") is not None else None,
+            avg_score=float(round(r["avg_score"], 2)) if r.get("avg_score") is not None else None,
             last_status=r["last_status"],
             last_submitted_at=str(r["last_submitted_at"]) if r.get("last_submitted_at") else None,
             last_task_id=str(r["last_task_id"]) if r.get("last_task_id") else None,

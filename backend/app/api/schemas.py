@@ -156,7 +156,7 @@ class StudentOverviewResponse(BaseModel):
     total_submissions: int
     completed_submissions: int
     repo_count: int
-    best_score: Optional[float] = None  # 0–10; None if no completed tasks yet
+    avg_score: Optional[float] = None  # 0–10 average across all completed tasks; None if none yet
     last_status: Optional[str] = None
     last_submitted_at: Optional[str] = None
     last_task_id: Optional[str] = None

@@ -6,7 +6,7 @@ Sistema de validación semántica de repositorios GitHub: los usuarios definen r
 
 | Servicio         | URL                          |
 |------------------|------------------------------|
-| Frontend         | http://localhost:5173        |
+| Frontend         | http://localhost:3000        |
 | API / Backend    | http://localhost:8080        |
 | Swagger UI       | http://localhost:8080/docs   |
 | ChromaDB         | http://localhost:8000        |
@@ -62,7 +62,7 @@ La GitHub App actúa como identidad del bot (publica estados en commits, hace ch
 1. Ve a **GitHub → Settings → Developer settings → GitHub Apps → New GitHub App**
 2. Rellena:
    - **GitHub App name**: el nombre que quieras (p. ej. `rule-validator-tfg`)
-   - **Homepage URL**: `http://localhost:5173`
+   - **Homepage URL**: `http://localhost:3000`
    - **Callback URL**: `http://localhost:8080/auth/callback`
    - **Webhook URL**: déjalo en blanco por ahora (lo actualizarás tras arrancar ngrok)
    - **Webhook secret**: genera una cadena aleatoria segura y guárdala
@@ -113,11 +113,16 @@ docker compose up --build
 
 Los servicios arrancan en este orden: PostgreSQL → ChromaDB → Backend → ngrok → Frontend.
 
+> El frontend se construye durante `docker compose up --build` (primera vez puede tardar ~1-2 min). Las variables `VITE_API_URL` y `VITE_WS_URL` se incrustan en el build; si necesitas cambiar la URL del backend, pasa los argumentos explícitamente:
+> ```bash
+> docker compose build frontend --build-arg VITE_API_URL=https://mi-dominio.com --build-arg VITE_WS_URL=wss://mi-dominio.com
+> ```
+
 ---
 
 ## 4. Uso básico
 
-1. Abre http://localhost:5173 y haz login con tu cuenta de GitHub
+1. Abre http://localhost:3000 y haz login con tu cuenta de GitHub
 2. Si no tienes la GitHub App instalada en ningún repositorio, el front te redirigirá para instalarla; una vez instalada, los repositorios aparecerán disponibles automáticamente
 3. Define las reglas de validación en lenguaje natural (p. ej. *"El proyecto debe tener un README con instrucciones de instalación"*)
 4. Lanza una validación manual o abre un PR en un repositorio donde tengas la GitHub App instalada para que se ejecute automáticamente

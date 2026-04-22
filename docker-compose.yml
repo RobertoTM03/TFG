@@ -56,6 +56,21 @@ services:
     networks:
       - app-network
 
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        VITE_API_URL: http://localhost:8080
+        VITE_WS_URL: ws://localhost:8080
+    ports:
+      - "3000:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - app-network
+
   ngrok:
     image: ngrok/ngrok:latest
     command: http backend:8080 --log=stdout
