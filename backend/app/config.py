@@ -71,6 +71,12 @@ class Settings(BaseSettings):
     GITHUB_WEBHOOK_SECRET: str = ""         # set in the App's webhook settings
     APPROVAL_THRESHOLD: float = 0.8         # score >= threshold → approved
 
+    # LangSmith
+    LANGSMITH_API_KEY: str = ""
+    LANGSMITH_ENDPOINT: str = "https://api.smith.langchain.com"
+    LANGSMITH_PROJECT: str = "TFG"
+    LANGSMITH_TRACING: bool = False
+
     # Background Worker
     WORKER_POLL_INTERVAL: int = 2
 

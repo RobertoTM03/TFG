@@ -1,4 +1,4 @@
-tamimport { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { Badge } from "@/shared/ui/Badge";
 import { ProgressBar } from "@/shared/ui/ProgressBar";
 import { formatDate } from "@/shared/lib/utils";

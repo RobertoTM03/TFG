@@ -8,6 +8,7 @@ from loguru import logger
 from app.config import Settings
 from app.infrastructure.container import Container
 from app.infrastructure.database import Database
+from app.infrastructure.tracing import validation_trace
 from app.infrastructure.websocket_manager import WebSocketManager
 
 class TaskWorker:
@@ -91,12 +92,16 @@ class TaskWorker:
         try:
             enable_cross_check = bool(task.get("enable_cross_check", False))
             service = self._container.validation_service
-            result = service.validate(
-                repo_url, rules,
-                on_progress=on_progress,
-                enable_cross_check=enable_cross_check,
-                clone_url=clone_url,
+            langsmith_enabled = bool(
+                self._settings.LANGSMITH_TRACING and self._settings.LANGSMITH_API_KEY
             )
+            with validation_trace(repo_url, rules, enabled=langsmith_enabled):
+                result = service.validate(
+                    repo_url, rules,
+                    on_progress=on_progress,
+                    enable_cross_check=enable_cross_check,
+                    clone_url=clone_url,
+                )
 
             result_json = self._serialize_result(result)
             self._db.complete_task(task_id, result_json)

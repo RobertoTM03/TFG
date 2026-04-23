@@ -23,6 +23,7 @@ from app.infrastructure.adapters.tree_sitter_repomap import TreeSitterRepomapAda
 from app.infrastructure.adapters.gemini_llm import GeminiLLMAdapter
 from app.infrastructure.adapters.github_app_adapter import GitHubAppAdapter
 from app.infrastructure.rate_limiter import RateLimitedEmbeddings, RateLimitedLLM, _RpmSlot
+from app.infrastructure.tracing import TracedLLMAdapter, TracedVectorStoreAdapter
 from app.infrastructure.database import Database
 
 EMBEDDING_REGISTRY = {
@@ -111,12 +112,17 @@ class Container:
                         else self.embedding.default_rpm
                     )
                     rate_limited = RateLimitedEmbeddings(raw_embeddings, rpm)
-                    self._vector_store = ChromaVectorStoreAdapter(
+                    vector_store = ChromaVectorStoreAdapter(
                         host=self._settings.CHROMA_HOST,
                         port=self._settings.CHROMA_PORT,
                         embeddings=rate_limited,
                         batch_size=self._settings.BATCH_SIZE,
                         delay_between_batches=self._settings.DELAY_BETWEEN_BATCHES,
+                    )
+                    self._vector_store = (
+                        TracedVectorStoreAdapter(vector_store)
+                        if self._settings.LANGSMITH_TRACING
+                        else vector_store
                     )
         return self._vector_store
 
@@ -169,7 +175,12 @@ class Container:
                         max_retries=self._settings.LLM_MAX_RETRIES,
                         retry_base_delay=self._settings.LLM_RETRY_BASE_DELAY,
                     )
-                    self._llm = RateLimitedLLM(adapter, self._shared_llm_slot)
+                    rate_limited_llm = RateLimitedLLM(adapter, self._shared_llm_slot)
+                    self._llm = (
+                        TracedLLMAdapter(rate_limited_llm)
+                        if self._settings.LANGSMITH_TRACING
+                        else rate_limited_llm
+                    )
         return self._llm
 
     # Primary LLM (used when ENABLE_CROSS_CHECK=True)
@@ -187,7 +198,12 @@ class Container:
                         max_retries=self._settings.LLM_MAX_RETRIES,
                         retry_base_delay=self._settings.LLM_RETRY_BASE_DELAY,
                     )
-                    self._llm_primary = RateLimitedLLM(adapter, self._shared_llm_slot)
+                    rate_limited_llm = RateLimitedLLM(adapter, self._shared_llm_slot)
+                    self._llm_primary = (
+                        TracedLLMAdapter(rate_limited_llm)
+                        if self._settings.LANGSMITH_TRACING
+                        else rate_limited_llm
+                    )
         return self._llm_primary
 
     # Secondary LLM (used when ENABLE_CROSS_CHECK=True)
@@ -205,7 +221,12 @@ class Container:
                         max_retries=self._settings.LLM_MAX_RETRIES,
                         retry_base_delay=self._settings.LLM_RETRY_BASE_DELAY,
                     )
-                    self._llm_secondary = RateLimitedLLM(adapter, self._shared_llm_slot)
+                    rate_limited_llm = RateLimitedLLM(adapter, self._shared_llm_slot)
+                    self._llm_secondary = (
+                        TracedLLMAdapter(rate_limited_llm)
+                        if self._settings.LANGSMITH_TRACING
+                        else rate_limited_llm
+                    )
         return self._llm_secondary
 
     # Cross-Check Service

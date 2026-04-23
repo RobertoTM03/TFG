@@ -14,6 +14,7 @@ from app.infrastructure.worker import TaskWorker
 
 from app.api.routes import auth, health, repos, rules, tasks, webhooks, repo_config, contributors
 from app.infrastructure.limiter import limiter, init_limiter
+from app.infrastructure.tracing import setup_langsmith
 
 
 @asynccontextmanager
@@ -22,6 +23,12 @@ async def lifespan(application: FastAPI):
     Shutdown: stop the worker gracefully."""
 
     settings = Settings()
+    setup_langsmith(
+        api_key=settings.LANGSMITH_API_KEY,
+        endpoint=settings.LANGSMITH_ENDPOINT,
+        project=settings.LANGSMITH_PROJECT,
+        enabled=settings.LANGSMITH_TRACING,
+    )
     init_limiter(settings)
     for warning in settings.warn_if_incomplete():
         logger.warning(f"[config] {warning}")

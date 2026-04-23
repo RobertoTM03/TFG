@@ -19,6 +19,9 @@ google-genai>=1.0.0
 langchain-google-genai>=2.0.0
 langchain-voyageai>=0.1.1
 
+# Observability
+langsmith>=0.1.0
+
 # Utilities
 slowapi>=0.1.9
 loguru>=0.7.0
