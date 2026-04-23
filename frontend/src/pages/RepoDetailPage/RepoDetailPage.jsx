@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import { fetchRules } from "@/entities/rule/api";
 import { fetchTasks } from "@/entities/task/api";
-import { fetchRepoStudents } from "@/entities/student/api";
+import { fetchRepoContributors } from "@/entities/contributor/api";
 import { RuleList } from "@/widgets/RuleList/RuleList";
 import { TaskTable } from "@/widgets/TaskTable/TaskTable";
 import StudentTable from "@/widgets/StudentTable/StudentTable";
@@ -42,7 +42,7 @@ export function RepoDetailPage() {
 
   useEffect(() => {
     if (tab !== "Estudiantes") return;
-    fetchRepoStudents(owner, repo)
+    fetchRepoContributors(owner, repo)
       .then((data) => setStudents(data ?? []))
       .catch(() => setStudents([]))
       .finally(() => setStudentsLoading(false));

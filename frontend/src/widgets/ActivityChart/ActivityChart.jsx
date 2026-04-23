@@ -285,9 +285,11 @@ export function ActivityChart({ tasks, repos = [] }) {
 
   // Sync when repoNames resolves after mount
   const repoKey = repoNames.join(",");
+  /* eslint-disable react-hooks/set-state-in-effect, react-hooks/exhaustive-deps */
   useEffect(() => {
     setSelectedRepos(new Set(repoNames));
-  }, [repoKey]);
+  }, [repoKey])
+  /* eslint-enable react-hooks/set-state-in-effect, react-hooks/exhaustive-deps */;
 
   const cfg = RANGES.find((r) => r.value === range);
 

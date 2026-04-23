@@ -31,7 +31,7 @@ export default function StudentTable({ students = [], loading = false }) {
           Sin entregas todavía
         </p>
         <p className="mt-1 text-sm text-[var(--color-text-muted)]">
-          Los alumnos aparecerán aquí cuando abran su primera PR.
+          Los colaboradores aparecerán aquí cuando abran su primera PR.
         </p>
       </div>
     );
@@ -42,7 +42,7 @@ export default function StudentTable({ students = [], loading = false }) {
       <table className="w-full text-sm">
         <thead>
           <tr className="border-b border-[var(--color-border)] text-left text-xs uppercase tracking-wider text-[var(--color-text-muted)]">
-            <th className="px-4 py-3">Alumno</th>
+            <th className="px-4 py-3">Colaborador</th>
             <th className="px-4 py-3 text-center">Envíos</th>
             <th className="px-4 py-3">Último estado</th>
             <th className="hidden px-4 py-3 lg:table-cell">Última entrega</th>
@@ -53,7 +53,7 @@ export default function StudentTable({ students = [], loading = false }) {
           {students.map((s) => (
             <tr
               key={s.pr_author}
-              onClick={() => navigate(`/students/${s.pr_author}`)}
+              onClick={() => navigate(`/contributors/${s.pr_author}`)}
               className="cursor-pointer transition-colors hover:bg-[var(--color-surface-2)]"
             >
               {/* Alumno */}
@@ -94,7 +94,7 @@ export default function StudentTable({ students = [], loading = false }) {
               {/* Acción */}
               <td className="px-4 py-3 text-right">
                 <Link
-                  to={`/students/${s.pr_author}`}
+                  to={`/contributors/${s.pr_author}`}
                   className="text-xs font-medium text-indigo-400 transition-colors hover:text-indigo-300"
                 >
                   Ver detalle →

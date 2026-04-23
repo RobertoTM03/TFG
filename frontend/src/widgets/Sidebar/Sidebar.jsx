@@ -65,8 +65,8 @@ const navItems = [
     ),
   },
   {
-    to: "/students",
-    label: "Alumnos",
+    to: "/contributors",
+    label: "Colaboradores",
     icon: (
       <svg
         width="16"

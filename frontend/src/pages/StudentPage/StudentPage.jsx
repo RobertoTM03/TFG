@@ -1,43 +1,14 @@
 import { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import {
-  fetchStudentTasks,
-  fetchStudentSummary,
-} from "../../entities/student/api";
-import { TaskTable } from "../../widgets/TaskTable/TaskTable";
-import { PageLoader } from "../../shared/ui/Spinner";
-import { Button } from "../../shared/ui/Button";
-import { EmptyState } from "../../shared/ui/EmptyState";
-import { formatDate } from "../../shared/lib/utils";
-
-function scoreColor(score) {
-  if (score === null || score === undefined) return null;
-  if (score >= 8) return "success";
-  if (score >= 5) return "warning";
-  return "danger";
-}
-
-function ScoreDisplay({ score, size = "lg" }) {
-  if (score === null || score === undefined) {
-    return <span className="text-[var(--color-text-muted)]">—</span>;
-  }
-  const colorMap = {
-    success: "text-[var(--color-success)]",
-    warning: "text-amber-400",
-    danger: "text-[var(--color-danger)]",
-  };
-  const cls = colorMap[scoreColor(score)] ?? "text-[var(--color-text)]";
-  return (
-    <span
-      className={`${cls} tabular-nums font-bold ${size === "lg" ? "text-3xl" : "text-xl"}`}
-    >
-      {score.toFixed(1)}
-      <span className="text-sm font-normal text-[var(--color-text-muted)]">
-        /10
-      </span>
-    </span>
-  );
-}
+  fetchContributorTasks,
+  fetchContributorSummary,
+} from "@/entities/contributor/api";
+import { TaskTable } from "@/widgets/TaskTable/TaskTable";
+import { PageLoader } from "@/shared/ui/Spinner";
+import { Button } from "@/shared/ui/Button";
+import { EmptyState } from "@/shared/ui/EmptyState";
+import { formatDate } from "@/shared/lib/utils";
 
 function VerdictBar({ passCount, partialCount, failCount }) {
   const total = passCount + partialCount + failCount;
@@ -49,26 +20,20 @@ function VerdictBar({ passCount, partialCount, failCount }) {
     <div className="mt-2">
       <div className="flex h-2 w-full overflow-hidden rounded-full bg-[var(--color-surface-2)]">
         {pPct > 0 && (
-          <div
-            className="h-full bg-[var(--color-success)]"
-            style={{ width: `${pPct}%` }}
-          />
+          <div className="h-full bg-[var(--color-success)]" style={{ width: `${pPct}%` }} />
         )}
         {tPct > 0 && (
           <div className="h-full bg-amber-400" style={{ width: `${tPct}%` }} />
         )}
         {fPct > 0 && (
-          <div
-            className="h-full bg-[var(--color-danger)]"
-            style={{ width: `${fPct}%` }}
-          />
+          <div className="h-full bg-[var(--color-danger)]" style={{ width: `${fPct}%` }} />
         )}
       </div>
       <div className="mt-1.5 flex gap-3 text-xs text-[var(--color-text-muted)]">
         {passCount > 0 && (
           <span className="flex items-center gap-1">
             <span className="h-2 w-2 rounded-full bg-[var(--color-success)]" />
-            {passCount} aprobadas
+            {passCount} superadas
           </span>
         )}
         {partialCount > 0 && (
@@ -80,7 +45,7 @@ function VerdictBar({ passCount, partialCount, failCount }) {
         {failCount > 0 && (
           <span className="flex items-center gap-1">
             <span className="h-2 w-2 rounded-full bg-[var(--color-danger)]" />
-            {failCount} suspensas
+            {failCount} fallidas
           </span>
         )}
       </div>
@@ -96,13 +61,13 @@ export function StudentPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetchStudentSummary(githubLogin)
+    fetchContributorSummary(githubLogin)
       .then(setSummary)
       .catch(() => setSummary(null));
   }, [githubLogin]);
 
   useEffect(() => {
-    fetchStudentTasks(githubLogin, { page, pageSize: 10 })
+    fetchContributorTasks(githubLogin, { page, pageSize: 10 })
       .then(setData)
       .catch(() => setData(null))
       .finally(() => setLoading(false));
@@ -137,24 +102,16 @@ export function StudentPage() {
         </div>
         <div className="ml-auto">
           <Link
-            to="/students"
+            to="/contributors"
             className="text-xs text-[var(--color-text-muted)] hover:text-[var(--color-text)] transition-colors"
           >
-            ← Todos los alumnos
+            ← Todos los colaboradores
           </Link>
         </div>
       </div>
 
-      {/* Stats principales */}
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-        <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4">
-          <p className="text-xs text-[var(--color-text-muted)] uppercase tracking-wider">
-            Mejor nota
-          </p>
-          <div className="mt-1">
-            <ScoreDisplay score={summary?.best_score_overall ?? null} />
-          </div>
-        </div>
+      {/* Stats */}
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
         <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4">
           <p className="text-xs text-[var(--color-text-muted)] uppercase tracking-wider">
             Envíos totales
@@ -190,52 +147,67 @@ export function StudentPage() {
             Resultados por repositorio
           </h2>
           <div className="grid gap-4 sm:grid-cols-2">
-            {summary.repos.map((repo) => (
-              <div
-                key={repo.repository_full_name}
-                className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4"
-              >
-                <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-medium text-[var(--color-text)]">
-                      {repo.repository_full_name}
-                    </p>
-                    <p className="mt-0.5 text-xs text-[var(--color-text-muted)]">
-                      {repo.total_submissions} envío
-                      {repo.total_submissions !== 1 ? "s" : ""} ·{" "}
-                      {repo.completed_submissions} completado
-                      {repo.completed_submissions !== 1 ? "s" : ""}
-                    </p>
-                  </div>
-                  <div className="shrink-0 text-right">
-                    <ScoreDisplay score={repo.best_score} size="md" />
-                    {repo.best_task_id && (
-                      <div className="mt-1">
-                        <Link
-                          to={`/tasks/${repo.best_task_id}`}
-                          className="text-xs text-indigo-400 hover:text-indigo-300 transition-colors"
-                        >
-                          {repo.best_pr_number
-                            ? `PR #${repo.best_pr_number}`
-                            : "Ver mejor evaluación"}{" "}
-                          →
-                        </Link>
+            {summary.repos.map((repo) => {
+              const total_rules =
+                repo.pass_count + repo.partial_count + repo.fail_count;
+              return (
+                <div
+                  key={repo.repository_full_name}
+                  className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4"
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-medium text-[var(--color-text)]">
+                        {repo.repository_full_name}
+                      </p>
+                      <p className="mt-0.5 text-xs text-[var(--color-text-muted)]">
+                        {repo.total_submissions} envío
+                        {repo.total_submissions !== 1 ? "s" : ""} ·{" "}
+                        {repo.completed_submissions} completado
+                        {repo.completed_submissions !== 1 ? "s" : ""}
+                      </p>
+                    </div>
+                    {total_rules > 0 && (
+                      <div className="shrink-0 text-right">
+                        <span className="text-xl font-bold text-[var(--color-text)] tabular-nums">
+                          {repo.pass_count}
+                          <span className="text-sm font-normal text-[var(--color-text-muted)]">
+                            /{total_rules}
+                          </span>
+                        </span>
+                        <p className="text-xs text-[var(--color-text-muted)]">
+                          reglas superadas
+                        </p>
                       </div>
                     )}
                   </div>
+
+                  <VerdictBar
+                    passCount={repo.pass_count}
+                    partialCount={repo.partial_count}
+                    failCount={repo.fail_count}
+                  />
+
+                  {repo.best_task_id && (
+                    <div className="mt-2">
+                      <Link
+                        to={`/tasks/${repo.best_task_id}`}
+                        className="text-xs text-indigo-400 hover:text-indigo-300 transition-colors"
+                      >
+                        {repo.best_pr_number
+                          ? `PR #${repo.best_pr_number}`
+                          : "Ver última evaluación"}{" "}
+                        →
+                      </Link>
+                    </div>
+                  )}
+
+                  <p className="mt-2 text-xs text-[var(--color-text-muted)]">
+                    Última entrega: {formatDate(repo.last_submitted_at)}
+                  </p>
                 </div>
-
-                <VerdictBar
-                  passCount={repo.pass_count}
-                  partialCount={repo.partial_count}
-                  failCount={repo.fail_count}
-                />
-
-                <p className="mt-2 text-xs text-[var(--color-text-muted)]">
-                  Última entrega: {formatDate(repo.last_submitted_at)}
-                </p>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       )}
@@ -249,7 +221,7 @@ export function StudentPage() {
         {!data?.items?.length && !loading ? (
           <EmptyState
             title="Sin evaluaciones"
-            description="Este alumno no tiene evaluaciones registradas."
+            description="Este colaborador no tiene evaluaciones registradas."
           />
         ) : (
           <>

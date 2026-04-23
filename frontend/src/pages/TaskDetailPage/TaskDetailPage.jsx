@@ -105,7 +105,14 @@ export function TaskDetailPage() {
                 {STATUS_LABELS[task.status] ?? task.status}
               </Badge>
               {task.pr_number && (
-                <Badge color="primary">PR #{task.pr_number}</Badge>
+                <a
+                  href={`https://github.com/${task.repository_full_name}/pull/${task.pr_number}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <Badge color="primary">PR #{task.pr_number} ↗</Badge>
+                </a>
               )}
             </div>
             <Link

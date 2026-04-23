@@ -1,4 +1,4 @@
-import { Link, useNavigate } from "react-router-dom";
+tamimport { Link, useNavigate } from "react-router-dom";
 import { Badge } from "@/shared/ui/Badge";
 import { ProgressBar } from "@/shared/ui/ProgressBar";
 import { formatDate } from "@/shared/lib/utils";
@@ -26,6 +26,9 @@ export function TaskTable({ tasks }) {
             <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-[var(--color-text-muted)]">
               Estado
             </th>
+            <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-[var(--color-text-muted)] hidden sm:table-cell">
+              PR
+            </th>
             <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-[var(--color-text-muted)] hidden md:table-cell">
               Progreso
             </th>
@@ -43,14 +46,33 @@ export function TaskTable({ tasks }) {
               className="cursor-pointer transition-colors hover:bg-[var(--color-surface-2)]"
             >
               <td className="px-4 py-3">
-                <span className="font-medium text-[var(--color-text)]">
+                <Link
+                  to={`/repos/${task.repository_full_name}`}
+                  onClick={(e) => e.stopPropagation()}
+                  className="font-medium text-[var(--color-text)] hover:text-indigo-400 transition-colors"
+                >
                   {task.repository_full_name}
-                </span>
+                </Link>
               </td>
               <td className="px-4 py-3">
                 <Badge color={statusColor(task.status)}>
                   {STATUS_LABELS[task.status] ?? task.status}
                 </Badge>
+              </td>
+              <td className="px-4 py-3 hidden sm:table-cell">
+                {task.pr_number ? (
+                  <a
+                    href={`https://github.com/${task.repository_full_name}/pull/${task.pr_number}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    onClick={(e) => e.stopPropagation()}
+                    className="text-xs font-medium text-indigo-400 hover:text-indigo-300 transition-colors"
+                  >
+                    #{task.pr_number} ↗
+                  </a>
+                ) : (
+                  <span className="text-xs text-[var(--color-text-muted)]">—</span>
+                )}
               </td>
               <td className="px-4 py-3 hidden md:table-cell">
                 <div className="flex items-center gap-2 min-w-[100px]">
