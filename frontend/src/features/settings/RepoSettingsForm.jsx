@@ -36,6 +36,7 @@ const DEFAULTS = {
   approval_threshold: 0.8,
   enable_cross_check: true,
   pr_evaluation_enabled: true,
+  max_chunks_per_rule: 5,
 };
 
 export function RepoSettingsForm({ owner, repo }) {
@@ -106,6 +107,17 @@ export function RepoSettingsForm({ owner, repo }) {
             handleChange("approval_threshold", parseFloat(e.target.value))
           }
           hint="Score mínimo (0–1) para aprobar el PR automáticamente"
+        />
+        <Input
+          label="Chunks por regla"
+          type="number"
+          min={1}
+          max={20}
+          value={settings.max_chunks_per_rule}
+          onChange={(e) =>
+            handleChange("max_chunks_per_rule", parseInt(e.target.value, 10))
+          }
+          hint="Número de fragmentos de código que se pasan al LLM por cada regla"
         />
       </div>
 

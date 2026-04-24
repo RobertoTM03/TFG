@@ -70,6 +70,7 @@ class ValidationService:
         on_progress: ProgressCallback = None,
         enable_cross_check: Optional[bool] = None,
         clone_url: Optional[str] = None,
+        max_chunks_per_rule: Optional[int] = None,
     ) -> ValidationResult:
         """Run the full validation pipeline with incremental indexing."""
 
@@ -232,7 +233,7 @@ class ValidationService:
                     query=rule,
                     collection_name=collection_name,
                     threshold=self._settings.SIMILARITY_THRESHOLD,
-                    max_results=self._settings.MAX_RESULTS,
+                    max_results=max_chunks_per_rule if max_chunks_per_rule is not None else self._settings.MAX_RESULTS,
                 )
                 file_matches = self._results_to_file_matches(
                     results, repo_path,

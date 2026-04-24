@@ -131,6 +131,7 @@ class RepoConfigResponse(BaseModel):
     approval_threshold: float
     enable_cross_check: bool
     pr_evaluation_enabled: bool
+    max_chunks_per_rule: int
 
 
 class RepoConfigRequest(BaseModel):
@@ -139,6 +140,7 @@ class RepoConfigRequest(BaseModel):
     approval_threshold: float = Field(default=0.8, ge=0.0, le=1.0)
     enable_cross_check: bool = True
     pr_evaluation_enabled: bool = True
+    max_chunks_per_rule: int = Field(default=5, ge=1, le=20)
 
 
 class ContributorSummaryResponse(BaseModel):

@@ -91,6 +91,10 @@ class TaskWorker:
 
         try:
             enable_cross_check = bool(task.get("enable_cross_check", False))
+            repo_config = self._db.get_repo_config(
+                str(task["user_id"]), task["repository_full_name"]
+            ) if task.get("user_id") else None
+            max_chunks_per_rule = repo_config["max_chunks_per_rule"] if repo_config else None
             service = self._container.validation_service
             langsmith_enabled = bool(
                 self._settings.LANGSMITH_TRACING and self._settings.LANGSMITH_API_KEY
@@ -101,6 +105,7 @@ class TaskWorker:
                     on_progress=on_progress,
                     enable_cross_check=enable_cross_check,
                     clone_url=clone_url,
+                    max_chunks_per_rule=max_chunks_per_rule,
                 )
 
             result_json = self._serialize_result(result)

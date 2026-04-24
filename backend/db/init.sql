@@ -110,6 +110,7 @@ CREATE TABLE IF NOT EXISTS repo_configs (
     approval_threshold      FLOAT   NOT NULL DEFAULT 0.8,
     enable_cross_check      BOOLEAN NOT NULL DEFAULT TRUE,
     pr_evaluation_enabled   BOOLEAN NOT NULL DEFAULT TRUE,
+    max_chunks_per_rule     INTEGER NOT NULL DEFAULT 5,
     created_at              TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at              TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     UNIQUE(user_id, repository_full_name)

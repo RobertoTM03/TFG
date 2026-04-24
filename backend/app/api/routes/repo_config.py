@@ -11,6 +11,7 @@ _DEFAULTS = {
     "approval_threshold": 0.8,
     "enable_cross_check": True,
     "pr_evaluation_enabled": True,
+    "max_chunks_per_rule": 5,
 }
 
 
@@ -35,6 +36,7 @@ async def get_repo_config(
         approval_threshold=row["approval_threshold"],
         enable_cross_check=row["enable_cross_check"],
         pr_evaluation_enabled=row["pr_evaluation_enabled"],
+        max_chunks_per_rule=row["max_chunks_per_rule"],
     )
 
 
@@ -59,10 +61,12 @@ async def put_repo_config(
         approval_threshold=body.approval_threshold,
         enable_cross_check=body.enable_cross_check,
         pr_evaluation_enabled=body.pr_evaluation_enabled,
+        max_chunks_per_rule=body.max_chunks_per_rule,
     )
     return RepoConfigResponse(
         max_evaluations_per_pr=row["max_evaluations_per_pr"],
         approval_threshold=row["approval_threshold"],
         enable_cross_check=row["enable_cross_check"],
         pr_evaluation_enabled=row["pr_evaluation_enabled"],
+        max_chunks_per_rule=row["max_chunks_per_rule"],
     )
