@@ -11,7 +11,7 @@ const features = [
   },
   {
     title: "Feedback automático en el PR",
-    desc: "Los estudiantes reciben un comentario detallado con su puntuación y las reglas que han superado o no.",
+    desc: "Los colaboradores reciben un comentario detallado con su puntuación y las reglas que han superado o no.",
   },
   {
     title: "Cross-check con dos modelos",
@@ -22,8 +22,8 @@ const features = [
     desc: "Configura umbrales de aprobación, número máximo de intentos y más, de forma independiente por tarea.",
   },
   {
-    title: "Vista de alumnos",
-    desc: "Consulta el historial de entregas de cada estudiante a través de todos tus repositorios desde un único panel.",
+    title: "Vista de colaboradores",
+    desc: "Consulta el historial de contribuciones de cada colaborador a través de todos tus repositorios desde un único panel.",
   },
   {
     title: "Estado en tiempo real",
@@ -106,7 +106,7 @@ export function LandingPage() {
         </h1>
         <p className="mx-auto mt-6 max-w-lg text-[15px] leading-relaxed text-[var(--color-text-muted)]">
           Define reglas de validación, conecta tus repositorios de GitHub y deja
-          que la IA evalúe automáticamente los pull requests de tus estudiantes.
+          que la IA evalúe automáticamente los pull requests de tus colaboradores.
         </p>
         <div className="mt-10 flex flex-col items-center gap-3">
           <button
@@ -117,7 +117,7 @@ export function LandingPage() {
             Comenzar con GitHub
           </button>
           <p className="text-[12px] text-[var(--color-text-muted)]">
-            Solo para profesores · Los estudiantes interactúan a través de
+            Solo para dueños de repositorio · Los colaboradores interactúan a través de
             GitHub
           </p>
         </div>
