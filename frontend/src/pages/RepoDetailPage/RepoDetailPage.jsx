@@ -5,7 +5,7 @@ import { fetchTasks } from "@/entities/task/api";
 import { fetchRepoContributors } from "@/entities/contributor/api";
 import { RuleList } from "@/widgets/RuleList/RuleList";
 import { TaskTable } from "@/widgets/TaskTable/TaskTable";
-import StudentTable from "@/widgets/StudentTable/StudentTable";
+import ContributorTable from "@/widgets/ContributorTable/ContributorTable";
 import { RuleForm } from "@/features/rules/RuleForm";
 import { RuleImportExport } from "@/features/rules/RuleImportExport";
 import { RepoSettingsForm } from "@/features/settings/RepoSettingsForm";
@@ -14,7 +14,7 @@ import { PageLoader } from "@/shared/ui/Spinner";
 import { Badge } from "@/shared/ui/Badge";
 import { clsx } from "@/shared/lib/utils";
 
-const TABS = ["Reglas", "Evaluaciones", "Estudiantes", "Configuración"];
+const TABS = ["Reglas", "Evaluaciones", "Colaboradores", "Configuración"];
 
 const MAX_RULES = 10;
 
@@ -23,8 +23,8 @@ export function RepoDetailPage() {
   const [tab, setTab] = useState("Reglas");
   const [rules, setRules] = useState([]);
   const [tasks, setTasks] = useState(null);
-  const [students, setStudents] = useState([]);
-  const [studentsLoading, setStudentsLoading] = useState(false);
+  const [contributors, setContributors] = useState([]);
+  const [contributorsLoading, setContributorsLoading] = useState(false);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -41,11 +41,11 @@ export function RepoDetailPage() {
   }, [owner, repo]);
 
   useEffect(() => {
-    if (tab !== "Estudiantes") return;
+    if (tab !== "Colaboradores") return;
     fetchRepoContributors(owner, repo)
-      .then((data) => setStudents(data ?? []))
-      .catch(() => setStudents([]))
-      .finally(() => setStudentsLoading(false));
+      .then((data) => setContributors(data ?? []))
+      .catch(() => setContributors([]))
+      .finally(() => setContributorsLoading(false));
   }, [tab, owner, repo]);
 
   function handleRuleCreated(rule) {
@@ -97,8 +97,8 @@ export function RepoDetailPage() {
           <button
             key={t}
             onClick={() => {
-              if (t === "Estudiantes" && tab !== "Estudiantes")
-                setStudentsLoading(true);
+              if (t === "Colaboradores" && tab !== "Colaboradores")
+                setContributorsLoading(true);
               setTab(t);
             }}
             className={clsx(
@@ -122,9 +122,9 @@ export function RepoDetailPage() {
                 {tasks.total}
               </Badge>
             )}
-            {t === "Estudiantes" && students.length > 0 && (
+            {t === "Colaboradores" && contributors.length > 0 && (
               <Badge color="muted" className="ml-2">
-                {students.length}
+                {contributors.length}
               </Badge>
             )}
           </button>
@@ -201,12 +201,12 @@ export function RepoDetailPage() {
         </div>
       )}
 
-      {tab === "Estudiantes" && (
+      {tab === "Colaboradores" && (
         <div>
           <p className="mb-4 text-sm text-[var(--color-text-muted)]">
-            Alumnos que han abierto pull requests en este repositorio.
+            Colaboradores que han abierto pull requests en este repositorio.
           </p>
-          <StudentTable students={students} loading={studentsLoading} />
+          <ContributorTable contributors={contributors} loading={contributorsLoading} />
         </div>
       )}
 

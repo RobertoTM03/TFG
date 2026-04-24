@@ -8,8 +8,8 @@ import { ReposPage } from "@/pages/ReposPage/ReposPage";
 import { RepoDetailPage } from "@/pages/RepoDetailPage/RepoDetailPage";
 import { TasksPage } from "@/pages/TasksPage/TasksPage";
 import { TaskDetailPage } from "@/pages/TaskDetailPage/TaskDetailPage";
-import { StudentPage } from "@/pages/StudentPage/StudentPage";
-import { StudentsPage } from "@/pages/StudentsPage/StudentsPage";
+import { ContributorPage } from "@/pages/ContributorPage/ContributorPage";
+import { ContributorsPage } from "@/pages/ContributorsPage/ContributorsPage";
 
 export const router = createBrowserRouter([
   { path: "/", element: <LandingPage /> },
@@ -22,8 +22,8 @@ export const router = createBrowserRouter([
       { path: "/repos/:owner/:repo", element: <RepoDetailPage /> },
       { path: "/tasks", element: <TasksPage /> },
       { path: "/tasks/:taskId", element: <TaskDetailPage /> },
-      { path: "/contributors", element: <StudentsPage /> },
-      { path: "/contributors/:githubLogin", element: <StudentPage /> },
+      { path: "/contributors", element: <ContributorsPage /> },
+      { path: "/contributors/:githubLogin", element: <ContributorPage /> },
       { path: "*", element: <Navigate to="/dashboard" replace /> },
     ],
   },

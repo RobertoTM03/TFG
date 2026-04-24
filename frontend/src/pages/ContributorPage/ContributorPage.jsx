@@ -53,7 +53,7 @@ function VerdictBar({ passCount, partialCount, failCount }) {
   );
 }
 
-export function StudentPage() {
+export function ContributorPage() {
   const { githubLogin } = useParams();
   const [page, setPage] = useState(1);
   const [data, setData] = useState(null);
@@ -203,7 +203,7 @@ export function StudentPage() {
                   )}
 
                   <p className="mt-2 text-xs text-[var(--color-text-muted)]">
-                    Última entrega: {formatDate(repo.last_submitted_at)}
+                    Última contribución: {formatDate(repo.last_submitted_at)}
                   </p>
                 </div>
               );

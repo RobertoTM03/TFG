@@ -10,11 +10,11 @@ const STATUS_LABEL = {
 };
 
 /**
- * Table of students derived from pr_author aggregation.
+ * Table of contributors derived from pr_author aggregation.
  *
- * @param {{ students: Array, loading?: boolean }} props
+ * @param {{ contributors: Array, loading?: boolean }} props
  */
-export default function StudentTable({ students = [], loading = false }) {
+export default function ContributorTable({ contributors = [], loading = false }) {
   const navigate = useNavigate();
   if (loading) {
     return (
@@ -24,11 +24,11 @@ export default function StudentTable({ students = [], loading = false }) {
     );
   }
 
-  if (!students.length) {
+  if (!contributors.length) {
     return (
       <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] px-6 py-12 text-center">
         <p className="mt-2 font-medium text-[var(--color-text)]">
-          Sin entregas todavía
+          Sin contribuciones todavía
         </p>
         <p className="mt-1 text-sm text-[var(--color-text-muted)]">
           Los colaboradores aparecerán aquí cuando abran su primera PR.
@@ -45,18 +45,18 @@ export default function StudentTable({ students = [], loading = false }) {
             <th className="px-4 py-3">Colaborador</th>
             <th className="px-4 py-3 text-center">Envíos</th>
             <th className="px-4 py-3">Último estado</th>
-            <th className="hidden px-4 py-3 lg:table-cell">Última entrega</th>
+            <th className="hidden px-4 py-3 lg:table-cell">Última contribución</th>
             <th className="px-4 py-3" />
           </tr>
         </thead>
         <tbody className="divide-y divide-[var(--color-border)]">
-          {students.map((s) => (
+          {contributors.map((s) => (
             <tr
               key={s.pr_author}
               onClick={() => navigate(`/contributors/${s.pr_author}`)}
               className="cursor-pointer transition-colors hover:bg-[var(--color-surface-2)]"
             >
-              {/* Alumno */}
+              {/* Colaborador */}
               <td className="px-4 py-3">
                 <div className="flex items-center gap-3">
                   <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-indigo-600/20 text-xs font-semibold text-indigo-400">
@@ -86,7 +86,7 @@ export default function StudentTable({ students = [], loading = false }) {
                 )}
               </td>
 
-              {/* Última entrega */}
+              {/* Última contribución */}
               <td className="hidden px-4 py-3 text-[var(--color-text-muted)] lg:table-cell">
                 {formatDate(s.last_submitted_at)}
               </td>

@@ -13,7 +13,7 @@ const STATUS_LABEL = {
   pending: "Pendiente",
 };
 
-export function StudentsPage() {
+export function ContributorsPage() {
   const navigate = useNavigate();
   const [contributors, setContributors] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -117,7 +117,7 @@ export function StudentsPage() {
                   Último estado
                 </th>
                 <th className="px-4 py-3 hidden lg:table-cell">
-                  Última entrega
+                  Última contribución
                 </th>
                 <th className="px-4 py-3" />
               </tr>

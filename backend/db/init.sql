@@ -101,7 +101,7 @@ CREATE TABLE IF NOT EXISTS file_hashes (
 CREATE INDEX IF NOT EXISTS idx_file_hashes_lookup
     ON file_hashes (repository_url, embedding_model, chunking_strategy);
 
--- Per-repository configuration set by teachers
+-- Per-repository configuration set by repository owners
 CREATE TABLE IF NOT EXISTS repo_configs (
     id                      UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     user_id                 UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
