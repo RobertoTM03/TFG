@@ -105,6 +105,7 @@ class TaskWorker:
                     on_progress=on_progress,
                     enable_cross_check=enable_cross_check,
                     clone_url=clone_url,
+                    pr_branch=task.get("pr_head_ref"),
                     max_chunks_per_rule=max_chunks_per_rule,
                 )
 

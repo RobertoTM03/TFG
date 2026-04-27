@@ -54,6 +54,7 @@ CREATE TABLE IF NOT EXISTS tasks (
     github_installation_id BIGINT,
     pr_number              INTEGER,
     pr_head_sha            TEXT,
+    pr_head_ref            TEXT,
     pr_author              TEXT,
     created_at             TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     started_at             TIMESTAMP WITH TIME ZONE,

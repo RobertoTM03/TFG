@@ -233,6 +233,7 @@ class Database:
         enable_cross_check: bool = False,
         pr_number: Optional[int] = None,
         pr_head_sha: Optional[str] = None,
+        pr_head_ref: Optional[str] = None,
         pr_author: Optional[str] = None,
         github_installation_id: Optional[int] = None,
     ) -> Dict[str, Any]:
@@ -244,13 +245,13 @@ class Database:
                     """INSERT INTO tasks
                            (user_id, repository_url, repository_full_name,
                             rules, status, enable_cross_check,
-                            pr_number, pr_head_sha, pr_author,
+                            pr_number, pr_head_sha, pr_head_ref, pr_author,
                             github_installation_id)
-                       VALUES (%s, %s, %s, %s, 'pending', %s, %s, %s, %s, %s)
+                       VALUES (%s, %s, %s, %s, 'pending', %s, %s, %s, %s, %s, %s)
                        RETURNING *""",
                     (user_id, repository_url, repository_full_name,
                      json.dumps(rules), enable_cross_check,
-                     pr_number, pr_head_sha, pr_author,
+                     pr_number, pr_head_sha, pr_head_ref, pr_author,
                      github_installation_id),
                 )
                 row = cur.fetchone()

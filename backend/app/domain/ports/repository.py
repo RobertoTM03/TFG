@@ -1,13 +1,13 @@
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import List, Tuple
+from typing import List, Optional, Tuple
 
 
 class RepositoryPort(ABC):
     """Port for git repository operations."""
 
     @abstractmethod
-    def clone(self, url: str) -> Path: ...
+    def clone(self, url: str, branch: Optional[str] = None) -> Path: ...
 
     @abstractmethod
     def load_files(self, repo_path: Path) -> List[Tuple[str, str]]: ...

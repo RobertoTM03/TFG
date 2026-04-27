@@ -9,7 +9,10 @@ class VectorStorePort(ABC):
 
     @abstractmethod
     def index_documents(
-        self, chunks: List[CodeChunk], collection_name: str,
+        self,
+        chunks: List[CodeChunk],
+        collection_name: str,
+        branch: str = '',
     ) -> int: ...
 
     @abstractmethod
@@ -20,6 +23,7 @@ class VectorStorePort(ABC):
         threshold: float = 0.3,
         max_results: int = 5,
         filter_metadata: Optional[Dict] = None,
+        pr_branch: Optional[str] = None,
     ) -> List[SearchResult]: ...
 
     @abstractmethod
@@ -30,8 +34,14 @@ class VectorStorePort(ABC):
 
     @abstractmethod
     def delete_by_sources(
-        self, collection_name: str, source_paths: List[str],
+        self,
+        collection_name: str,
+        source_paths: List[str],
+        branch: str = '',
     ) -> int: ...
+
+    @abstractmethod
+    def delete_branch(self, collection_name: str, branch: str) -> int: ...
 
     @abstractmethod
     def collection_count(self, collection_name: str) -> int: ...

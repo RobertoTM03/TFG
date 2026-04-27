@@ -70,6 +70,7 @@ class ValidationService:
         on_progress: ProgressCallback = None,
         enable_cross_check: Optional[bool] = None,
         clone_url: Optional[str] = None,
+        pr_branch: Optional[str] = None,
         max_chunks_per_rule: Optional[int] = None,
     ) -> ValidationResult:
         """Run the full validation pipeline with incremental indexing."""
@@ -79,10 +80,15 @@ class ValidationService:
                 on_progress(pct, msg)
 
         repo_path = None
+        use_pr_delta = False
+        collection_name = ""
         try:
             # 1. Clone — use the authenticated URL if provided.
             _report(0, "Cloning repository...")
-            repo_path = self._repository.clone(clone_url or repository_url)
+            repo_path = self._repository.clone(
+                clone_url or repository_url,
+                branch=pr_branch,
+            )
             _report(5, "Repository cloned")
 
             model_name = self._embedding.name
@@ -109,7 +115,7 @@ class ValidationService:
                     "supported code files."
                 )
 
-            # 4. Stored hashes
+            # 4. Stored hashes (reflect main branch state)
             stored_hashes = self._database.get_file_hashes(
                 repository_url, model_name, strategy_name,
             )
@@ -128,96 +134,134 @@ class ValidationService:
 
             files_to_index = new_files | changed_files
             files_to_remove = deleted_files | changed_files
-            collection_ready = self._vector_store.collection_exists(
-                collection_name,
-            )
+            main_indexed = self._vector_store.collection_exists(collection_name)
 
-            if not collection_ready and stored_hashes:
-                logger.warning(
-                    f"Collection '{collection_name}' missing in vector store "
-                    "but hashes exist -- forcing full re-index"
-                )
-                files_to_index = current_paths
-                files_to_remove = set()
+            # Decide indexing strategy:
+            # - PR + main already indexed → two-layer delta (don't touch main index)
+            # - PR + no main index        → bootstrap: full index as main (branch='')
+            # - No PR                     → standard incremental indexing
+            use_pr_delta = pr_branch is not None and main_indexed
 
-            # 6. Incremental indexing
-            if (
-                not files_to_index
-                and not files_to_remove
-                and collection_ready
-            ):
-                _report(15, "Repository already indexed -- skipping")
+            if use_pr_delta:
+                # 6. Two-layer PR path: only embed changed files as ephemeral delta
+                _report(15, "PR delta mode: indexing changed files only...")
                 logger.info(
-                    f"Fully vectorised: {len(unchanged_files)} unchanged"
-                )
-            else:
-                _report(15, "Indexing repository...")
-                logger.info(
-                    f"Incremental: {len(new_files)} new, "
-                    f"{len(changed_files)} changed, "
-                    f"{len(deleted_files)} deleted, "
-                    f"{len(unchanged_files)} unchanged"
+                    f"PR delta '{pr_branch}': {len(files_to_index)} files to embed "
+                    f"({len(new_files)} new, {len(changed_files)} changed), "
+                    f"{len(unchanged_files)} served from main index"
                 )
 
-                # 6a. Remove stale
-                if files_to_remove and collection_ready:
-                    removed = self._vector_store.delete_by_sources(
-                        collection_name, list(files_to_remove),
-                    )
-                    logger.info(f"Removed {removed} stale chunks")
-
-                # 6b. Hash entries for deleted files
-                if deleted_files:
-                    self._database.delete_file_hash_entries(
-                        repository_url, model_name, strategy_name,
-                        list(deleted_files),
-                    )
-
-                # 6c. Chunk and index new/changed files
                 if files_to_index:
-                    _report(20, "Chunking and embedding files...")
+                    _report(20, "Chunking and embedding PR changes...")
                     files_to_chunk = [
                         (path, content) for path, content in files
                         if path in files_to_index
                     ]
                     chunks = self._chunking.chunk_files(files_to_chunk)
 
-                    # Ensure repo_name is injected
                     repo_name_str = Path(repo_path).name
                     for chunk in chunks:
                         chunk.repo_name = repo_name_str
 
                     logger.info(
-                        f"Split {len(files_to_chunk)} files "
-                        f"into {len(chunks)} chunks"
+                        f"Split {len(files_to_chunk)} changed files "
+                        f"into {len(chunks)} chunks (PR delta)"
                     )
-
                     num_indexed = self._vector_store.index_documents(
                         chunks=chunks,
                         collection_name=collection_name,
+                        branch=pr_branch,
                     )
-                    _report(
-                        65, f"Indexed {num_indexed} chunks",
+                    _report(65, f"Indexed {num_indexed} PR delta chunks")
+                else:
+                    _report(65, "No file changes in PR — using main index only")
+
+            else:
+                # 6. Standard incremental indexing (updates main index, branch='')
+                if not main_indexed and stored_hashes:
+                    logger.warning(
+                        f"Collection '{collection_name}' missing in vector store "
+                        "but hashes exist -- forcing full re-index"
+                    )
+                    files_to_index = current_paths
+                    files_to_remove = set()
+
+                if (
+                    not files_to_index
+                    and not files_to_remove
+                    and main_indexed
+                ):
+                    _report(15, "Repository already indexed -- skipping")
+                    logger.info(
+                        f"Fully vectorised: {len(unchanged_files)} unchanged"
+                    )
+                else:
+                    _report(15, "Indexing repository...")
+                    logger.info(
+                        f"Incremental: {len(new_files)} new, "
+                        f"{len(changed_files)} changed, "
+                        f"{len(deleted_files)} deleted, "
+                        f"{len(unchanged_files)} unchanged"
                     )
 
-                # 6d. Update indexed_repositories
-                total = self._vector_store.collection_count(collection_name)
-                ir_id = self._database.save_indexed_repo(
-                    repo_url=repository_url,
-                    collection_name=collection_name,
-                    num_chunks=total,
-                    embedding_model=model_name,
-                    chunking_strategy=strategy_name,
-                )
+                    # 6a. Remove stale chunks from main
+                    if files_to_remove and main_indexed:
+                        removed = self._vector_store.delete_by_sources(
+                            collection_name, list(files_to_remove),
+                        )
+                        logger.info(f"Removed {removed} stale chunks")
 
-                # 6e. Update file hashes
-                self._database.save_file_hashes(ir_id, current_hashes)
+                    # 6b. Hash entries for deleted files
+                    if deleted_files:
+                        self._database.delete_file_hash_entries(
+                            repository_url, model_name, strategy_name,
+                            list(deleted_files),
+                        )
+
+                    # 6c. Chunk and index new/changed files into main (branch='')
+                    if files_to_index:
+                        _report(20, "Chunking and embedding files...")
+                        files_to_chunk = [
+                            (path, content) for path, content in files
+                            if path in files_to_index
+                        ]
+                        chunks = self._chunking.chunk_files(files_to_chunk)
+
+                        repo_name_str = Path(repo_path).name
+                        for chunk in chunks:
+                            chunk.repo_name = repo_name_str
+
+                        logger.info(
+                            f"Split {len(files_to_chunk)} files "
+                            f"into {len(chunks)} chunks"
+                        )
+                        num_indexed = self._vector_store.index_documents(
+                            chunks=chunks,
+                            collection_name=collection_name,
+                        )
+                        _report(65, f"Indexed {num_indexed} chunks")
+
+                    # 6d. Update indexed_repositories
+                    total = self._vector_store.collection_count(collection_name)
+                    ir_id = self._database.save_indexed_repo(
+                        repo_url=repository_url,
+                        collection_name=collection_name,
+                        num_chunks=total,
+                        embedding_model=model_name,
+                        chunking_strategy=strategy_name,
+                    )
+
+                    # 6e. Update file hashes
+                    self._database.save_file_hashes(ir_id, current_hashes)
 
             # 7. Repomap
             _report(70, "Generating repository map...")
             repomap = self._repomap.generate(repo_path)
 
             # 8. Similarity search per rule
+            # PR delta mode: UNION search (main + delta, PR version wins on conflict)
+            # Standard mode: search main only
+            search_pr_branch = pr_branch if use_pr_delta else None
             validations: List[RuleValidation] = []
             for idx, rule in enumerate(rules):
                 pct = 72 + int((idx / max(len(rules), 1)) * 8)
@@ -229,6 +273,7 @@ class ValidationService:
                     collection_name=collection_name,
                     threshold=self._settings.SIMILARITY_THRESHOLD,
                     max_results=max_chunks_per_rule if max_chunks_per_rule is not None else self._settings.MAX_RESULTS,
+                    pr_branch=search_pr_branch,
                 )
                 file_matches = self._results_to_file_matches(
                     results, repo_path,
@@ -337,6 +382,17 @@ class ValidationService:
         finally:
             if repo_path:
                 self._repository.cleanup(repo_path)
+            if use_pr_delta and pr_branch and collection_name:
+                try:
+                    deleted = self._vector_store.delete_branch(
+                        collection_name, pr_branch,
+                    )
+                    logger.info(
+                        f"Cleaned up PR delta: {deleted} chunks removed "
+                        f"(branch='{pr_branch}')"
+                    )
+                except Exception as e:
+                    logger.warning(f"Could not clean up PR delta: {e}")
 
     # Helpers
 

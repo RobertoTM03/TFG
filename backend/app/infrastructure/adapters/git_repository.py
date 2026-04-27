@@ -2,7 +2,7 @@ import shutil
 import tempfile
 from fnmatch import fnmatch
 from pathlib import Path
-from typing import List, Tuple
+from typing import List, Optional, Tuple
 
 from git import GitCommandError, Repo
 from loguru import logger
@@ -46,13 +46,15 @@ class GitRepositoryAdapter(RepositoryPort):
         """Strip credentials from a URL before logging or surfacing in errors."""
         return url.split("@")[-1] if "@" in url else url
 
-    def clone(self, url: str) -> Path:
+    def clone(self, url: str, branch: Optional[str] = None) -> Path:
         tmp_dir = tempfile.mkdtemp(prefix="tfg_repo_")
         safe = self._safe_url(url)
-        logger.info(f"Cloning {safe} into {tmp_dir}...")
+        branch_info = f" (branch: {branch})" if branch else ""
+        logger.info(f"Cloning {safe}{branch_info} into {tmp_dir}...")
         try:
             Repo.clone_from(
                 url, tmp_dir, depth=1,
+                branch=branch if branch else None,
                 env={"GIT_TERMINAL_PROMPT": "0", "GIT_ASKPASS": "echo"},
             )
         except GitCommandError as e:

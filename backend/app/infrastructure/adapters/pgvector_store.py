@@ -132,6 +132,7 @@ class PgVectorStoreAdapter(VectorStorePort):
         self,
         chunks: List[CodeChunk],
         collection_name: str,
+        branch: str = '',
     ) -> int:
         total = len(chunks)
         indexed = 0
@@ -169,7 +170,7 @@ class PgVectorStoreAdapter(VectorStorePort):
                                         embedding  = EXCLUDED.embedding,
                                         created_at = NOW()
                                 """, (
-                                    collection_name, '',
+                                    collection_name, branch,
                                     chunk.file_path,
                                     chunk.start_line, chunk.end_line,
                                     chunk.language, chunk.repo_name,
@@ -210,6 +211,7 @@ class PgVectorStoreAdapter(VectorStorePort):
         self,
         collection_name: str,
         source_paths: List[str],
+        branch: str = '',
     ) -> int:
         if not source_paths:
             return 0
@@ -220,7 +222,7 @@ class PgVectorStoreAdapter(VectorStorePort):
                     WHERE  collection_name = %s
                       AND  branch          = %s
                       AND  source          = ANY(%s)
-                """, (collection_name, '', source_paths))
+                """, (collection_name, branch, source_paths))
                 deleted = cur.rowcount
             conn.commit()
         return deleted
@@ -234,6 +236,18 @@ class PgVectorStoreAdapter(VectorStorePort):
                 """, (collection_name,))
             conn.commit()
 
+    def delete_branch(self, collection_name: str, branch: str) -> int:
+        with self._vector_conn() as conn:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    DELETE FROM document_embeddings
+                    WHERE  collection_name = %s
+                      AND  branch          = %s
+                """, (collection_name, branch))
+                deleted = cur.rowcount
+            conn.commit()
+        return deleted
+
     def similarity_search(
         self,
         query: str,
@@ -241,6 +255,7 @@ class PgVectorStoreAdapter(VectorStorePort):
         threshold: float = 0.3,
         max_results: int = 5,
         filter_metadata: Optional[Dict] = None,
+        pr_branch: Optional[str] = None,
     ) -> List[SearchResult]:
         query_emb = self._embeddings.embed_query(query)
 
@@ -253,32 +268,16 @@ class PgVectorStoreAdapter(VectorStorePort):
                     extra_clauses.append(f"{col} = %s")
                     extra_params.append(val)
 
-        where = "collection_name = %s AND branch = %s"
-        if extra_clauses:
-            where += " AND " + " AND ".join(extra_clauses)
-
-        sql = f"""
-            SELECT source, start_line, end_line, language,
-                   repo_name, node_type, node_name, content,
-                   1.0 - (embedding <=> %s::vector) AS similarity
-            FROM   document_embeddings
-            WHERE  {where}
-            ORDER  BY embedding <=> %s::vector
-            LIMIT  %s
-        """
-        params = (
-            [query_emb]
-            + [collection_name, '']
-            + extra_params
-            + [query_emb, max_results]
-        )
-
-        with self._vector_conn() as conn:
-            with conn.cursor(
-                cursor_factory=psycopg2.extras.RealDictCursor,
-            ) as cur:
-                cur.execute(sql, params)
-                rows = cur.fetchall()
+        if pr_branch is not None:
+            rows = self._union_search(
+                query_emb, collection_name, pr_branch,
+                extra_clauses, extra_params, max_results,
+            )
+        else:
+            rows = self._branch_search(
+                query_emb, collection_name, '',
+                extra_clauses, extra_params, max_results,
+            )
 
         out: List[SearchResult] = []
         for row in rows:
@@ -297,14 +296,76 @@ class PgVectorStoreAdapter(VectorStorePort):
                 out.append(SearchResult(chunk=chunk, relevance_score=sim))
 
         out.sort(key=lambda r: r.relevance_score, reverse=True)
-        return out
+        return out[:max_results]
+
+    def _branch_search(
+        self,
+        query_emb,
+        collection_name: str,
+        branch: str,
+        extra_clauses: list,
+        extra_params: list,
+        max_results: int,
+    ) -> list:
+        where = "collection_name = %s AND branch = %s"
+        if extra_clauses:
+            where += " AND " + " AND ".join(extra_clauses)
+
+        sql = f"""
+            SELECT source, start_line, end_line, language,
+                   repo_name, node_type, node_name, content,
+                   1.0 - (embedding <=> %s::vector) AS similarity
+            FROM   document_embeddings
+            WHERE  {where}
+            ORDER  BY embedding <=> %s::vector
+            LIMIT  %s
+        """
+        params = (
+            [query_emb, collection_name, branch]
+            + extra_params
+            + [query_emb, max_results]
+        )
+        with self._vector_conn() as conn:
+            with conn.cursor(
+                cursor_factory=psycopg2.extras.RealDictCursor,
+            ) as cur:
+                cur.execute(sql, params)
+                return cur.fetchall()
+
+    def _union_search(
+        self,
+        query_emb,
+        collection_name: str,
+        pr_branch: str,
+        extra_clauses: list,
+        extra_params: list,
+        max_results: int,
+    ) -> list:
+        """Search main (branch='') and PR delta, deduplicate by file (PR wins)."""
+        main_rows = self._branch_search(
+            query_emb, collection_name, '',
+            extra_clauses, extra_params, max_results,
+        )
+        pr_rows = self._branch_search(
+            query_emb, collection_name, pr_branch,
+            extra_clauses, extra_params, max_results,
+        )
+
+        # Merge: PR version overwrites main for the same source file
+        merged: Dict[str, dict] = {row["source"]: row for row in main_rows}
+        for row in pr_rows:
+            merged[row["source"]] = row
+
+        return sorted(merged.values(), key=lambda r: r["similarity"], reverse=True)
 
     def collection_exists(self, collection_name: str) -> bool:
+        """Returns True only if the main branch (branch='') has been indexed."""
         with self._vector_conn() as conn:
             with conn.cursor() as cur:
                 cur.execute("""
                     SELECT 1 FROM document_embeddings
                     WHERE  collection_name = %s
+                      AND  branch          = ''
                     LIMIT  1
                 """, (collection_name,))
                 return cur.fetchone() is not None
