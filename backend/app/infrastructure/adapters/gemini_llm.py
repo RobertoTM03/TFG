@@ -8,6 +8,7 @@ from google.genai import types, errors
 from loguru import logger
 
 from app.config import Settings
+from app.domain.exceptions import LLMUnavailableError
 from app.domain.models.evaluation import RuleEvaluation
 from app.domain.ports import LLMPort
 from app.infrastructure.token_limiter import TokenLimiter
@@ -102,6 +103,8 @@ class GeminiLLMAdapter(LLMPort):
             evaluation.tokens_used = tokens_used
             return evaluation
 
+        except LLMUnavailableError:
+            raise
         except Exception as e:
             logger.error(f"Gemini evaluation failed for rule '{rule[:60]}': {e}")
             return RuleEvaluation(
@@ -138,7 +141,7 @@ class GeminiLLMAdapter(LLMPort):
                         f"Gemini server error: all "
                         f"{_SERVER_ERROR_MAX_RETRIES + 1} attempts exhausted."
                     )
-                    raise
+                    raise LLMUnavailableError(str(exc)) from exc
                 delay = 5.0 * (2 ** server_error_attempts)
                 server_error_attempts += 1
                 logger.warning(
@@ -154,7 +157,7 @@ class GeminiLLMAdapter(LLMPort):
                             f"Gemini 429 rate-limit: all {self._max_retries + 1} "
                             f"attempts exhausted."
                         )
-                        raise
+                        raise LLMUnavailableError(str(exc)) from exc
                     delay = self._retry_base_delay * (2 ** rate_limit_attempts)
                     rate_limit_attempts += 1
                     logger.warning(
@@ -168,7 +171,7 @@ class GeminiLLMAdapter(LLMPort):
                             f"Gemini {exc.code} server error: all "
                             f"{_SERVER_ERROR_MAX_RETRIES + 1} attempts exhausted."
                         )
-                        raise
+                        raise LLMUnavailableError(str(exc)) from exc
                     delay = 5.0 * (2 ** server_error_attempts)
                     server_error_attempts += 1
                     logger.warning(

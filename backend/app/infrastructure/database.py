@@ -345,7 +345,7 @@ class Database:
                 return [dict(r) for r in cur.fetchall()]
 
     def claim_pending_task(self) -> Optional[Dict[str, Any]]:
-        """Atomically claim the oldest pending task."""
+        """Atomically claim the oldest pending task that is ready to run."""
         with self._conn() as conn:
             with conn.cursor(
                 cursor_factory=psycopg2.extras.RealDictCursor,
@@ -356,6 +356,7 @@ class Database:
                        WHERE id = (
                            SELECT id FROM tasks
                            WHERE status = 'pending'
+                             AND (retry_after IS NULL OR retry_after <= NOW())
                            ORDER BY created_at ASC
                            LIMIT 1
                            FOR UPDATE SKIP LOCKED
@@ -365,6 +366,24 @@ class Database:
                 row = cur.fetchone()
             conn.commit()
             return dict(row) if row else None
+
+    def requeue_task(self, task_id: str, delay_seconds: int) -> None:
+        """Return a failed task to the pending queue to be retried after a delay."""
+        with self._conn() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """UPDATE tasks
+                       SET status = 'pending',
+                           retry_count = retry_count + 1,
+                           retry_after = NOW() + %s * INTERVAL '1 second',
+                           started_at = NULL,
+                           error = NULL,
+                           progress = 0,
+                           progress_message = ''
+                       WHERE id = %s""",
+                    (delay_seconds, task_id),
+                )
+            conn.commit()
 
     def update_task_progress(
         self, task_id: str, progress: int, message: str,

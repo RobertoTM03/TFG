@@ -76,6 +76,9 @@ class Settings(BaseSettings):
 
     # Background Worker
     WORKER_POLL_INTERVAL: int = 2
+    WORKER_CONCURRENCY: int = 1       # number of parallel worker threads
+    WORKER_MAX_TASK_RETRIES: int = 5  # max re-queues before marking as failed
+    WORKER_RETRY_DELAY: int = 120     # seconds to wait before retrying a re-queued task
 
     model_config = {"env_file": ".env", "env_file_encoding": "utf-8"}
 
@@ -138,7 +141,10 @@ class Settings(BaseSettings):
             )
         return v
 
-    @field_validator("MAX_RULES_PER_REPO", "WORKER_POLL_INTERVAL", "LLM_MAX_RETRIES", "BATCH_SIZE")
+    @field_validator(
+        "MAX_RULES_PER_REPO", "WORKER_POLL_INTERVAL", "WORKER_CONCURRENCY",
+        "WORKER_MAX_TASK_RETRIES", "WORKER_RETRY_DELAY", "LLM_MAX_RETRIES", "BATCH_SIZE",
+    )
     @classmethod
     def _check_positive_int(cls, v: int, info) -> int:
         if v < 1:

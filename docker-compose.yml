@@ -1,8 +1,6 @@
 services:
   db:
-    build:
-      context: ./backend/db
-      dockerfile: Dockerfile
+    image: timescale/timescaledb-ha:pg16
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-tfg}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-tfg_password}

@@ -56,15 +56,18 @@ CREATE TABLE IF NOT EXISTS tasks (
     pr_head_sha            TEXT,
     pr_head_ref            TEXT,
     pr_author              TEXT,
+    retry_count            INTEGER NOT NULL DEFAULT 0,
+    retry_after            TIMESTAMP WITH TIME ZONE,
     created_at             TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     started_at             TIMESTAMP WITH TIME ZONE,
     completed_at           TIMESTAMP WITH TIME ZONE
 );
 
-CREATE INDEX IF NOT EXISTS idx_tasks_user      ON tasks (user_id);
-CREATE INDEX IF NOT EXISTS idx_tasks_status    ON tasks (status);
-CREATE INDEX IF NOT EXISTS idx_tasks_pr_author ON tasks (pr_author);
-CREATE INDEX IF NOT EXISTS idx_tasks_repo_pr   ON tasks (repository_full_name, pr_number);
+CREATE INDEX IF NOT EXISTS idx_tasks_user        ON tasks (user_id);
+CREATE INDEX IF NOT EXISTS idx_tasks_status      ON tasks (status);
+CREATE INDEX IF NOT EXISTS idx_tasks_pr_author   ON tasks (pr_author);
+CREATE INDEX IF NOT EXISTS idx_tasks_repo_pr     ON tasks (repository_full_name, pr_number);
+CREATE INDEX IF NOT EXISTS idx_tasks_retry_after ON tasks (retry_after) WHERE status = 'pending';
 
 -- Shared task access (view-only grants)
 CREATE TABLE IF NOT EXISTS task_viewers (
