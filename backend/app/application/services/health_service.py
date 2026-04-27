@@ -24,18 +24,18 @@ class HealthService:
         except Exception:
             pass
 
-        chroma_ok = False
+        vector_store_ok = False
         try:
-            chroma_ok = self._vector_store.check_health()
+            vector_store_ok = self._vector_store.check_health()
         except Exception:
             pass
 
         return {
-            "status": "healthy" if (postgres_ok and chroma_ok) else "degraded",
+            "status": "healthy" if (postgres_ok and vector_store_ok) else "degraded",
             "components": {
                 "api": True,
                 "postgres": postgres_ok,
-                "chromadb": chroma_ok,
+                "vector_store": vector_store_ok,
             },
             "config": {
                 "embedding_model": self._embedding.name,

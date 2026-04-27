@@ -406,6 +406,26 @@ class Database:
                 )
             conn.commit()
 
+    # Repositories (hub table for the indexing subsystem)
+
+    def _get_or_create_repository(
+        self,
+        conn,
+        url: str,
+        full_name: Optional[str] = None,
+    ) -> str:
+        """Return repositories.id, creating the row if needed."""
+        with conn.cursor() as cur:
+            cur.execute(
+                """INSERT INTO repositories (url, full_name)
+                   VALUES (%s, %s)
+                   ON CONFLICT (url) DO UPDATE SET
+                       full_name = COALESCE(EXCLUDED.full_name, repositories.full_name)
+                   RETURNING id""",
+                (url, full_name),
+            )
+            return str(cur.fetchone()[0])
+
     # Indexed repositories
 
     def get_indexed_repo(
@@ -419,10 +439,11 @@ class Database:
                 cursor_factory=psycopg2.extras.RealDictCursor,
             ) as cur:
                 cur.execute(
-                    """SELECT * FROM indexed_repositories
-                       WHERE repository_url = %s
-                         AND embedding_model = %s
-                         AND chunking_strategy = %s""",
+                    """SELECT ir.* FROM indexed_repositories ir
+                       JOIN repositories r ON ir.repository_id = r.id
+                       WHERE r.url = %s
+                         AND ir.embedding_model = %s
+                         AND ir.chunking_strategy = %s""",
                     (repo_url, embedding_model, chunking_strategy),
                 )
                 row = cur.fetchone()
@@ -435,24 +456,29 @@ class Database:
         num_chunks: int,
         embedding_model: str,
         chunking_strategy: str,
-    ) -> None:
+        repo_full_name: Optional[str] = None,
+    ) -> str:
+        """Upsert the indexed-repo record and return its id."""
         with self._conn() as conn:
+            repo_id = self._get_or_create_repository(conn, repo_url, repo_full_name)
             with conn.cursor() as cur:
                 cur.execute(
                     """INSERT INTO indexed_repositories
-                           (repository_url, collection_name, num_chunks,
+                           (repository_id, collection_name, num_chunks,
                             embedding_model, chunking_strategy)
                        VALUES (%s, %s, %s, %s, %s)
-                       ON CONFLICT (repository_url, embedding_model,
-                                    chunking_strategy)
+                       ON CONFLICT (repository_id, embedding_model, chunking_strategy)
                        DO UPDATE SET
                            collection_name = EXCLUDED.collection_name,
-                           num_chunks = EXCLUDED.num_chunks,
-                           indexed_at = NOW()""",
-                    (repo_url, collection_name, num_chunks,
+                           num_chunks      = EXCLUDED.num_chunks,
+                           indexed_at      = NOW()
+                       RETURNING id""",
+                    (repo_id, collection_name, num_chunks,
                      embedding_model, chunking_strategy),
                 )
+                ir_id = str(cur.fetchone()[0])
             conn.commit()
+        return ir_id
 
     # File hashes (incremental indexing)
 
@@ -465,19 +491,20 @@ class Database:
         with self._conn() as conn:
             with conn.cursor() as cur:
                 cur.execute(
-                    """SELECT file_path, content_hash FROM file_hashes
-                       WHERE repository_url = %s
-                         AND embedding_model = %s
-                         AND chunking_strategy = %s""",
+                    """SELECT fh.file_path, fh.content_hash
+                       FROM file_hashes fh
+                       JOIN indexed_repositories ir ON fh.indexed_repository_id = ir.id
+                       JOIN repositories r ON ir.repository_id = r.id
+                       WHERE r.url = %s
+                         AND ir.embedding_model = %s
+                         AND ir.chunking_strategy = %s""",
                     (repo_url, embedding_model, chunking_strategy),
                 )
                 return {row[0]: row[1] for row in cur.fetchall()}
 
     def save_file_hashes(
         self,
-        repo_url: str,
-        embedding_model: str,
-        chunking_strategy: str,
+        indexed_repo_id: str,
         file_hashes: Dict[str, str],
     ) -> None:
         with self._conn() as conn:
@@ -485,16 +512,13 @@ class Database:
                 for file_path, content_hash in file_hashes.items():
                     cur.execute(
                         """INSERT INTO file_hashes
-                               (repository_url, embedding_model,
-                                chunking_strategy, file_path, content_hash)
-                           VALUES (%s, %s, %s, %s, %s)
-                           ON CONFLICT (repository_url, embedding_model,
-                                        chunking_strategy, file_path)
+                               (indexed_repository_id, file_path, content_hash)
+                           VALUES (%s, %s, %s)
+                           ON CONFLICT (indexed_repository_id, file_path)
                            DO UPDATE SET
                                content_hash = EXCLUDED.content_hash,
-                               updated_at = NOW()""",
-                        (repo_url, embedding_model, chunking_strategy,
-                         file_path, content_hash),
+                               updated_at   = NOW()""",
+                        (indexed_repo_id, file_path, content_hash),
                     )
             conn.commit()
 
@@ -776,11 +800,14 @@ class Database:
         with self._conn() as conn:
             with conn.cursor() as cur:
                 cur.execute(
-                    """DELETE FROM file_hashes
-                       WHERE repository_url = %s
-                         AND embedding_model = %s
-                         AND chunking_strategy = %s
-                         AND file_path = ANY(%s)""",
+                    """DELETE FROM file_hashes fh
+                       USING indexed_repositories ir, repositories r
+                       WHERE fh.indexed_repository_id = ir.id
+                         AND ir.repository_id = r.id
+                         AND r.url = %s
+                         AND ir.embedding_model = %s
+                         AND ir.chunking_strategy = %s
+                         AND fh.file_path = ANY(%s)""",
                     (repo_url, embedding_model, chunking_strategy, file_paths),
                 )
             conn.commit()

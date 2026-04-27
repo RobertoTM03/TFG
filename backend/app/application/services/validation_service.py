@@ -134,7 +134,7 @@ class ValidationService:
 
             if not collection_ready and stored_hashes:
                 logger.warning(
-                    f"Collection '{collection_name}' missing in ChromaDB "
+                    f"Collection '{collection_name}' missing in vector store "
                     "but hashes exist -- forcing full re-index"
                 )
                 files_to_index = current_paths
@@ -200,23 +200,18 @@ class ValidationService:
                         65, f"Indexed {num_indexed} chunks",
                     )
 
-                # 6d. Update hashes
-                self._database.save_file_hashes(
-                    repository_url, model_name, strategy_name,
-                    current_hashes,
-                )
-
-                # 6e. Update indexed_repositories
-                total = self._vector_store.collection_count(
-                    collection_name,
-                )
-                self._database.save_indexed_repo(
+                # 6d. Update indexed_repositories
+                total = self._vector_store.collection_count(collection_name)
+                ir_id = self._database.save_indexed_repo(
                     repo_url=repository_url,
                     collection_name=collection_name,
                     num_chunks=total,
                     embedding_model=model_name,
                     chunking_strategy=strategy_name,
                 )
+
+                # 6e. Update file hashes
+                self._database.save_file_hashes(ir_id, current_hashes)
 
             # 7. Repomap
             _report(70, "Generating repository map...")

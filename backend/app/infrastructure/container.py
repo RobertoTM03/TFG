@@ -13,11 +13,12 @@ from app.domain.ports import (
     RepositoryPort,
     VectorStorePort,
 )
+from app.domain.models.embedding_model import SUPPORTED_EMBEDDING_MODELS
 from app.infrastructure.adapters.gemini_embedding import GeminiEmbeddingAdapter
 from app.infrastructure.adapters.voyage_embedding import VoyageEmbeddingAdapter
 from app.infrastructure.adapters.tree_sitter_chunker import TreeSitterChunkingAdapter
 from app.infrastructure.adapters.tree_sitter_limited_chunker import TreeSitterLimitedChunkingAdapter
-from app.infrastructure.adapters.chroma_store import ChromaVectorStoreAdapter
+from app.infrastructure.adapters.pgvector_store import PgVectorStoreAdapter
 from app.infrastructure.adapters.git_repository import GitRepositoryAdapter
 from app.infrastructure.adapters.tree_sitter_repomap import TreeSitterRepomapAdapter
 from app.infrastructure.adapters.gemini_llm import GeminiLLMAdapter
@@ -112,10 +113,12 @@ class Container:
                         else self.embedding.default_rpm
                     )
                     rate_limited = RateLimitedEmbeddings(raw_embeddings, rpm)
-                    vector_store = ChromaVectorStoreAdapter(
-                        host=self._settings.CHROMA_HOST,
-                        port=self._settings.CHROMA_PORT,
+                    spec = SUPPORTED_EMBEDDING_MODELS[self._settings.EMBEDDING_MODEL]
+                    vector_store = PgVectorStoreAdapter(
+                        database=self.database,
                         embeddings=rate_limited,
+                        embedding_model_key=spec.key,
+                        embedding_dimensions=spec.dimensions,
                         batch_size=self._settings.BATCH_SIZE,
                         delay_between_batches=self._settings.DELAY_BETWEEN_BATCHES,
                     )

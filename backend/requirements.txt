@@ -6,7 +6,7 @@ pydantic-settings>=2.0.0
 
 # Database
 psycopg2-binary>=2.9.0
-chromadb>=0.4.20
+pgvector>=0.3.0
 
 # Code Processing
 tree-sitter>=0.22.0

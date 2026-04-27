@@ -1,4 +1,5 @@
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+CREATE EXTENSION IF NOT EXISTS vectorscale CASCADE; -- also installs pgvector
 
 -- Users authenticated via GitHub OAuth
 CREATE TABLE IF NOT EXISTS users (
@@ -74,32 +75,38 @@ CREATE TABLE IF NOT EXISTS task_viewers (
 
 CREATE INDEX IF NOT EXISTS idx_task_viewers_user ON task_viewers (user_id);
 
+-- Repository registry — single source of truth for repo identity
+CREATE TABLE IF NOT EXISTS repositories (
+    id         UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    url        TEXT UNIQUE NOT NULL,
+    full_name  TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
 -- Indexed repositories cache (vector store collections)
 CREATE TABLE IF NOT EXISTS indexed_repositories (
     id                UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    repository_url    TEXT NOT NULL,
+    repository_id     UUID NOT NULL REFERENCES repositories(id) ON DELETE CASCADE,
     collection_name   TEXT UNIQUE NOT NULL,
     num_chunks        INTEGER DEFAULT 0,
     embedding_model   TEXT NOT NULL,
     chunking_strategy TEXT NOT NULL,
     indexed_at        TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    UNIQUE(repository_url, embedding_model, chunking_strategy)
+    UNIQUE(repository_id, embedding_model, chunking_strategy)
 );
 
 -- File content hashes for incremental indexing
 CREATE TABLE IF NOT EXISTS file_hashes (
-    id                UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    repository_url    TEXT NOT NULL,
-    embedding_model   TEXT NOT NULL,
-    chunking_strategy TEXT NOT NULL,
-    file_path         TEXT NOT NULL,
-    content_hash      TEXT NOT NULL,
-    updated_at        TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    UNIQUE(repository_url, embedding_model, chunking_strategy, file_path)
+    id                    UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    indexed_repository_id UUID NOT NULL REFERENCES indexed_repositories(id) ON DELETE CASCADE,
+    file_path             TEXT NOT NULL,
+    content_hash          TEXT NOT NULL,
+    updated_at            TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    UNIQUE(indexed_repository_id, file_path)
 );
 
 CREATE INDEX IF NOT EXISTS idx_file_hashes_lookup
-    ON file_hashes (repository_url, embedding_model, chunking_strategy);
+    ON file_hashes (indexed_repository_id);
 
 -- Per-repository configuration set by repository owners
 CREATE TABLE IF NOT EXISTS repo_configs (

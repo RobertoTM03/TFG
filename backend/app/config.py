@@ -1,7 +1,8 @@
 from pydantic import field_validator, model_validator
 from pydantic_settings import BaseSettings
 
-_VALID_EMBEDDING_MODELS = {"gemini", "voyage"}
+from app.domain.models.embedding_model import SUPPORTED_EMBEDDING_MODELS
+
 _VALID_CHUNKING_STRATEGIES = {"tree-sitter", "tree-sitter-limited"}
 _VALID_LLM_MODELS = {"gemini-2.5-flash","gemini-3.1-flash-lite-preview"}
 
@@ -21,10 +22,6 @@ class Settings(BaseSettings):
     # API Keys
     GOOGLE_API_KEY: str = ""
     VOYAGE_API_KEY: str = ""
-
-    # ChromaDB
-    CHROMA_HOST: str = "chromadb"
-    CHROMA_PORT: int = 8000
 
     # PostgreSQL
     POSTGRES_HOST: str = "db"
@@ -87,10 +84,10 @@ class Settings(BaseSettings):
     @field_validator("EMBEDDING_MODEL")
     @classmethod
     def _check_embedding_model(cls, v: str) -> str:
-        if v not in _VALID_EMBEDDING_MODELS:
+        if v not in SUPPORTED_EMBEDDING_MODELS:
             raise ValueError(
                 f"EMBEDDING_MODEL='{v}' is not valid. "
-                f"Choose one of: {sorted(_VALID_EMBEDDING_MODELS)}"
+                f"Choose one of: {sorted(SUPPORTED_EMBEDDING_MODELS)}"
             )
         return v
 
@@ -132,7 +129,7 @@ class Settings(BaseSettings):
             )
         return v
 
-    @field_validator("CHROMA_PORT", "POSTGRES_PORT")
+    @field_validator("POSTGRES_PORT")
     @classmethod
     def _check_port(cls, v: int, info) -> int:
         if not (1 <= v <= 65535):
