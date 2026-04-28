@@ -180,6 +180,7 @@ async def get_task(
         started_at=str(task["started_at"]) if task.get("started_at") else None,
         completed_at=str(task["completed_at"]) if task.get("completed_at") else None,
         pr_number=task.get("pr_number"),
+        pr_head_ref=task.get("pr_head_ref"),
         pr_head_sha=task.get("pr_head_sha"),
         pr_author=task.get("pr_author"),
         enable_cross_check=task.get("enable_cross_check", False),

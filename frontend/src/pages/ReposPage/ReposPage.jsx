@@ -12,7 +12,8 @@ export function ReposPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  useEffect(() => {
+  const loadData = (showLoader = false) => {
+    if (showLoader) setLoading(true);
     Promise.all([
       fetchRepos().catch((e) => {
         setError(e.message);
@@ -24,6 +25,17 @@ export function ReposPage() {
       setAppInfo(info);
       setLoading(false);
     });
+  };
+
+  useEffect(() => {
+    loadData(true);
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") loadData();
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    return () => document.removeEventListener("visibilitychange", handleVisibilityChange);
   }, []);
 
   if (loading) return <PageLoader />;

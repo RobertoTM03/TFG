@@ -111,6 +111,7 @@ class TaskDetailResponse(BaseModel):
     started_at: Optional[str] = None
     completed_at: Optional[str] = None
     pr_number: Optional[int] = None
+    pr_head_ref: Optional[str] = None
     pr_head_sha: Optional[str] = None
     pr_author: Optional[str] = None
     enable_cross_check: bool = False

@@ -7,7 +7,7 @@ export function RepoCard({ repo }) {
   return (
     <Link
       to={`/repos/${owner}/${name}`}
-      className="group block rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5 transition-all hover:border-indigo-500/50 hover:bg-[var(--color-surface-2)]"
+      className="group flex flex-col rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5 transition-all hover:border-indigo-500/50 hover:bg-[var(--color-surface-2)]"
     >
       <div className="flex items-start justify-between gap-3">
         <div className="flex-1 min-w-0">
@@ -52,7 +52,7 @@ export function RepoCard({ repo }) {
         )}
       </div>
 
-      <div className="mt-4 flex items-center gap-3">
+      <div className="mt-auto pt-4 flex items-center gap-3">
         {repo.language && (
           <div className="flex items-center gap-1.5 text-xs text-[var(--color-text-muted)]">
             <span className="h-2 w-2 rounded-full bg-indigo-400" />

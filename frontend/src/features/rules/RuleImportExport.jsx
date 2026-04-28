@@ -9,21 +9,6 @@ export function RuleImportExport({ owner, repo, rules, onImported }) {
   const [importing, setImporting] = useState(false);
   const [result, setResult] = useState(null); // { added, skipped, errors }
 
-  // ── Export ────────────────────────────────────────────────────────────────
-
-  function handleExport() {
-    const payload = { rules: rules.map((r) => r.rule_text) };
-    const blob = new Blob([JSON.stringify(payload, null, 2)], {
-      type: "application/json",
-    });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `rules-${owner}-${repo}.json`;
-    a.click();
-    URL.revokeObjectURL(url);
-  }
-
   // ── Import ────────────────────────────────────────────────────────────────
 
   async function handleFileChange(e) {
@@ -83,29 +68,6 @@ export function RuleImportExport({ owner, repo, rules, onImported }) {
   return (
     <div className="flex flex-col gap-3">
       <div className="flex items-center gap-2">
-        {/* Export */}
-        <Button
-          variant="secondary"
-          size="sm"
-          onClick={handleExport}
-          disabled={rules.length === 0}
-          title={rules.length === 0 ? "No hay reglas que exportar" : undefined}
-        >
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            className="h-4 w-4"
-            viewBox="0 0 20 20"
-            fill="currentColor"
-          >
-            <path
-              fillRule="evenodd"
-              d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z"
-              clipRule="evenodd"
-            />
-          </svg>
-          Exportar JSON
-        </Button>
-
         {/* Import */}
         <Button
           variant="secondary"
