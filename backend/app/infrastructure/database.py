@@ -398,6 +398,26 @@ class Database:
                 )
             conn.commit()
 
+    def save_task_partial_result(self, task_id: str, partial: list) -> None:
+        with self._conn() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    "UPDATE tasks SET partial_result = %s WHERE id = %s",
+                    (json.dumps(partial), task_id),
+                )
+            conn.commit()
+
+    def get_task_partial_result(self, task_id: str) -> list:
+        with self._conn() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    "SELECT partial_result FROM tasks WHERE id = %s", (task_id,),
+                )
+                row = cur.fetchone()
+            if row and row[0]:
+                return row[0] if isinstance(row[0], list) else json.loads(row[0])
+            return []
+
     def complete_task(self, task_id: str, result: dict) -> None:
         with self._conn() as conn:
             with conn.cursor() as cur:
@@ -407,6 +427,7 @@ class Database:
                            progress = 100,
                            progress_message = 'Done',
                            result = %s,
+                           partial_result = NULL,
                            completed_at = NOW()
                        WHERE id = %s""",
                     (json.dumps(result), task_id),

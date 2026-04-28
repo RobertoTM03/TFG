@@ -56,6 +56,7 @@ CREATE TABLE IF NOT EXISTS tasks (
     pr_head_sha            TEXT,
     pr_head_ref            TEXT,
     pr_author              TEXT,
+    partial_result         JSONB,
     retry_count            INTEGER NOT NULL DEFAULT 0,
     retry_after            TIMESTAMP WITH TIME ZONE,
     created_at             TIMESTAMP WITH TIME ZONE DEFAULT NOW(),

@@ -240,53 +240,56 @@ class GitHubAppAdapter(GitHubAppPort):
             else:
                 fails.append((rule, first))
 
-        def _title(rule: str, max_len: int = 55) -> str:
-            return rule if len(rule) <= max_len else rule[:max_len - 1] + "…"
-
-        # Build the body inside a single code block so alignment is exact
-        body_lines = []
-
-        # Header box with Unicode borders
         approved = score >= threshold
-        header_title  = f"EVALUACION AUTOMATICA #{eval_number}"
-        header_score  = f"Puntuacion: {pct}% ({len(passes)}/{total})"
-        header_result = f"{'APROBADO' if approved else 'NO APROBADO'}  (nota minima: {int(threshold * 100)}%)"
-        inner_w = max(len(header_title), len(header_score), len(header_result)) + 4
-        border_top    = "╔" + "═" * inner_w + "╗"
-        border_bottom = "╚" + "═" * inner_w + "╝"
-        body_lines += [
-            border_top,
-            "║" + header_title.center(inner_w) + "║",
-            "║" + header_score.center(inner_w) + "║",
-            "║" + header_result.center(inner_w) + "║",
-            border_bottom,
-            "",
-        ]
+        lines = []
 
-        if fails:
-            body_lines += ["NO CUMPLIDO", "─" * 11]
-            for rule, explanation in fails:
-                body_lines.append(f"[✗] {_title(rule)}")
-                if explanation:
-                    body_lines.append(f"    → {explanation}")
-            body_lines.append("")
+        # Header
+        result_label = "APROBADO" if approved else "NO APROBADO"
+        lines.append(f"## Informe de evaluación #{eval_number}")
+        lines.append("")
+        lines.append(f"**Resultado: {result_label}** — {pct}% de normas superadas (mínimo: {int(threshold * 100)}%)")
+        lines.append("")
+        lines.append("---")
 
-        if partials:
-            body_lines += ["PENDIENTE DE REVISION", "─" * 21]
-            for rule, explanation in partials:
-                body_lines.append(f"[~] {_title(rule)}")
-                if explanation:
-                    body_lines.append(f"    → {explanation}")
-            body_lines.append("")
+        def _section(title, items, open_tag):
+            section = []
+            section.append("")
+            section.append(f"#### {title}")
+            section.append("")
+            for i, (rule, explanation) in enumerate(items, start=1):
+                tag = "<details open>" if open_tag else "<details>"
+                section.append(tag)
+                section.append(f"<summary>{rule}</summary>")
+                section.append("")
+                section.append(explanation if explanation else "Sin observaciones.")
+                section.append("")
+                section.append("</details>")
+                section.append("")
+            section.append("---")
+            return section
 
-        if passes:
-            body_lines += ["APROBADO", "─" * 8]
-            for rule in passes:
-                body_lines.append(f"[✓] {_title(rule)}")
-            body_lines.append("")
+        # Numerar globalmente
+        idx = 1
+        numbered_fails    = []
+        numbered_partials = []
+        numbered_passes   = []
 
+        for rule, explanation in fails:
+            numbered_fails.append((f"{idx}. {rule}", explanation))
+            idx += 1
+        for rule, explanation in partials:
+            numbered_partials.append((f"{idx}. {rule}", explanation))
+            idx += 1
+        for rule in passes:
+            numbered_passes.append((f"{idx}. {rule}", ""))
+            idx += 1
 
-        # Wrap in a code block so the whole thing renders in monospace
-        code_block = "```\n" + "\n".join(body_lines) + "\n```"
-        footer = "\n---\n_Generado automaticamente por el validador de repositorios_"
-        return code_block + footer
+        if numbered_fails:
+            lines += _section("No cumplido", numbered_fails, open_tag=True)
+        if numbered_partials:
+            lines += _section("Pendiente de revisión", numbered_partials, open_tag=False)
+        if numbered_passes:
+            lines += _section("Superado", numbered_passes, open_tag=False)
+
+        lines.append("_Generado automáticamente_")
+        return "\n".join(lines)

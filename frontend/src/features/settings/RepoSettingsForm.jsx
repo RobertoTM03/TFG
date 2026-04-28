@@ -97,16 +97,16 @@ export function RepoSettingsForm({ owner, repo }) {
           hint="Número máximo de veces que se puede evaluar un PR"
         />
         <Input
-          label="Umbral de aprobación"
+          label="Umbral de aprobación (%)"
           type="number"
           min={0}
-          max={1}
-          step={0.05}
-          value={settings.approval_threshold}
+          max={100}
+          step={5}
+          value={Math.round(settings.approval_threshold * 100)}
           onChange={(e) =>
-            handleChange("approval_threshold", parseFloat(e.target.value))
+            handleChange("approval_threshold", parseInt(e.target.value, 10) / 100)
           }
-          hint="Score mínimo (0–1) para aprobar el PR automáticamente"
+          hint="Porcentaje mínimo de normas superadas para aprobar el PR"
         />
         <Input
           label="Chunks por regla"

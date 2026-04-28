@@ -6,7 +6,7 @@ from typing import List, Optional
 from loguru import logger
 
 from app.config import Settings
-from app.domain.exceptions import LLMUnavailableError
+from app.domain.exceptions import EmbeddingUnavailableError, LLMUnavailableError
 from app.infrastructure.container import Container
 from app.infrastructure.database import Database
 from app.infrastructure.tracing import validation_trace
@@ -82,6 +82,33 @@ class _WorkerThread:
                 "message": msg,
             })
 
+        # Partial results from a previous attempt (LLM resumption)
+        partial_results = self._db.get_task_partial_result(task_id)
+        if partial_results:
+            logger.info(
+                f"[{self._name}] Task {task_id} resuming from rule "
+                f"{len(partial_results) + 1} ({len(partial_results)} already evaluated)"
+            )
+
+        # Callback: persist each verdict as it's obtained
+        partial_snapshot: list = list(partial_results)
+
+        def on_rule_evaluated(idx: int, validation) -> None:
+            ev = validation.evaluation
+            entry = {
+                "rule": validation.rule,
+                "evaluation": {
+                    "verdict": ev.verdict if ev else "fail",
+                    "confidence": ev.confidence if ev else 0.0,
+                    "explanation": ev.explanation if ev else "",
+                    "suggestions": ev.suggestions if ev else [],
+                    "llm_provider": ev.llm_provider if ev else "",
+                    "tokens_used": ev.tokens_used if ev else 0,
+                },
+            }
+            partial_snapshot.append(entry)
+            self._db.save_task_partial_result(task_id, partial_snapshot)
+
         try:
             enable_cross_check = bool(task.get("enable_cross_check", False))
             repo_config = self._db.get_repo_config(
@@ -100,6 +127,8 @@ class _WorkerThread:
                     clone_url=clone_url,
                     pr_branch=task.get("pr_head_ref"),
                     max_chunks_per_rule=max_chunks_per_rule,
+                    partial_results=partial_results,
+                    on_rule_evaluated=on_rule_evaluated,
                 )
 
             result_json = self._serialize_result(result)
@@ -114,9 +143,10 @@ class _WorkerThread:
             if task.get("pr_number"):
                 self._post_github_review(task, result_json)
 
-        except LLMUnavailableError as exc:
+        except (LLMUnavailableError, EmbeddingUnavailableError) as exc:
             retry_count = task.get("retry_count", 0)
             max_retries = self._settings.WORKER_MAX_TASK_RETRIES
+            error_kind = "LLM" if isinstance(exc, LLMUnavailableError) else "Embedding"
             if retry_count < max_retries:
                 self._db.requeue_task(task_id, self._settings.WORKER_RETRY_DELAY)
                 self._notify(user_id, task_id, {
@@ -126,12 +156,12 @@ class _WorkerThread:
                     "max_retries": max_retries,
                 })
                 logger.warning(
-                    f"[{self._name}] Task {task_id} requeued due to LLM unavailability "
+                    f"[{self._name}] Task {task_id} requeued due to {error_kind} unavailability "
                     f"(attempt {retry_count + 1}/{max_retries}). "
                     f"Retry after {self._settings.WORKER_RETRY_DELAY}s."
                 )
             else:
-                error_msg = f"LLM no disponible tras {max_retries} reintentos: {exc}"
+                error_msg = f"{error_kind} no disponible tras {max_retries} reintentos: {exc}"
                 self._db.fail_task(task_id, error_msg)
                 self._notify(user_id, task_id, {
                     "type": "task_failed",
@@ -216,7 +246,7 @@ class _WorkerThread:
                     "error", "Validation error — see PR comment",
                 )
 
-            body = f"## Validacion automatica\n\nLa validacion fallo:\n\n> {error_msg}"
+            body = "## Informe de evaluación\n\nNo ha sido posible completar la evaluación en estos momentos. Por favor, inténtalo de nuevo más tarde.\n\n---\n_Generado automáticamente_"
             github_app.post_pr_comment(installation_id, owner_login, repo_name, task["pr_number"], body)
         except Exception as exc:
             logger.error(f"[{self._name}] Failed to post error review for task {task['id']}: {exc}")

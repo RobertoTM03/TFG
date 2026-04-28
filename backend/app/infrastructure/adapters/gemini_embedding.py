@@ -1,8 +1,10 @@
 from typing import List
 
 from langchain_google_genai import GoogleGenerativeAIEmbeddings
+from loguru import logger
 
 from app.config import Settings
+from app.domain.exceptions import EmbeddingUnavailableError
 from app.domain.ports import EmbeddingPort
 
 
@@ -36,7 +38,15 @@ class GeminiEmbeddingAdapter(EmbeddingPort):
         return self.DEFAULT_RPM
 
     def embed_documents(self, texts: List[str]) -> List[List[float]]:
-        return self._provider.embed_documents(texts)
+        try:
+            return self._provider.embed_documents(texts)
+        except Exception as exc:
+            logger.error(f"Embedding unavailable after retries: {exc}")
+            raise EmbeddingUnavailableError(str(exc)) from exc
 
     def embed_query(self, text: str) -> List[float]:
-        return self._provider.embed_query(text)
+        try:
+            return self._provider.embed_query(text)
+        except Exception as exc:
+            logger.error(f"Embedding unavailable after retries: {exc}")
+            raise EmbeddingUnavailableError(str(exc)) from exc

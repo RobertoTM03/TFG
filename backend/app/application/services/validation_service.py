@@ -72,6 +72,8 @@ class ValidationService:
         clone_url: Optional[str] = None,
         pr_branch: Optional[str] = None,
         max_chunks_per_rule: Optional[int] = None,
+        partial_results: Optional[List[dict]] = None,
+        on_rule_evaluated: Optional[Callable[[int, "RuleValidation"], None]] = None,
     ) -> ValidationResult:
         """Run the full validation pipeline with incremental indexing."""
 
@@ -288,23 +290,26 @@ class ValidationService:
                 )
 
             # 9. LLM evaluation -- one rule at a time
+            # Restore already-evaluated rules from partial results
+            saved = partial_results or []
             cross_check_active = enable_cross_check if enable_cross_check is not None else False
+
             if cross_check_active:
                 _report(80, "Evaluating rules with cross-check (dual-model)...")
                 for idx, validation in enumerate(validations):
-                    pct = 80 + int((idx / max(len(validations), 1)) * 14)
-                    _report(
-                        pct,
-                        f"Cross-checking rule {idx + 1}/{len(validations)}...",
-                    )
-                    logger.info(
-                        f"Cross-checking rule {idx + 1}: "
-                        f"{validation.rule[:80]}..."
-                    )
+                    if idx < len(saved):
+                        self._restore_cross_check(validation, saved[idx])
+                        logger.info(
+                            f"Rule {idx + 1} restored from partial results "
+                            f"(verdict={validation.evaluation.verdict if validation.evaluation else 'n/a'})"
+                        )
+                        continue
 
-                    file_contents = [
-                        fm.file_content for fm in validation.related_files
-                    ]
+                    pct = 80 + int((idx / max(len(validations), 1)) * 14)
+                    _report(pct, f"Cross-checking rule {idx + 1}/{len(validations)}...")
+                    logger.info(f"Cross-checking rule {idx + 1}: {validation.rule[:80]}...")
+
+                    file_contents = [fm.file_content for fm in validation.related_files]
                     eval_kwargs = dict(
                         rule=validation.rule,
                         repomap=repomap,
@@ -315,9 +320,7 @@ class ValidationService:
                     primary_eval = self._llm_primary.evaluate_rule(**eval_kwargs)
                     secondary_eval = self._llm_secondary.evaluate_rule(**eval_kwargs)
 
-                    cross_checked = self._cross_check_service.reconcile(
-                        primary_eval, secondary_eval,
-                    )
+                    cross_checked = self._cross_check_service.reconcile(primary_eval, secondary_eval)
                     validation.evaluation = cross_checked.final
                     validation.cross_check = cross_checked
                     logger.info(
@@ -327,25 +330,27 @@ class ValidationService:
                         f"confidence={cross_checked.final.confidence:.0%}"
                     )
 
+                    if on_rule_evaluated:
+                        on_rule_evaluated(idx, validation)
+
                 result_llm_model = self._llm_primary.name
 
             else:
                 _report(80, "Evaluating rules with LLM...")
                 for idx, validation in enumerate(validations):
+                    if idx < len(saved):
+                        self._restore_evaluation(validation, saved[idx])
+                        logger.info(
+                            f"Rule {idx + 1} restored from partial results "
+                            f"(verdict={validation.evaluation.verdict if validation.evaluation else 'n/a'})"
+                        )
+                        continue
+
                     pct = 80 + int((idx / max(len(validations), 1)) * 14)
-                    _report(
-                        pct,
-                        f"LLM evaluating rule {idx + 1}/{len(validations)}...",
-                    )
-                    logger.info(
-                        f"LLM evaluating rule {idx + 1}: "
-                        f"{validation.rule[:80]}..."
-                    )
+                    _report(pct, f"LLM evaluating rule {idx + 1}/{len(validations)}...")
+                    logger.info(f"LLM evaluating rule {idx + 1}: {validation.rule[:80]}...")
 
-                    file_contents = [
-                        fm.file_content for fm in validation.related_files
-                    ]
-
+                    file_contents = [fm.file_content for fm in validation.related_files]
                     evaluation = self._llm.evaluate_rule(
                         rule=validation.rule,
                         repomap=repomap,
@@ -357,6 +362,9 @@ class ValidationService:
                         f"  -> verdict={evaluation.verdict} "
                         f"confidence={evaluation.confidence:.0%}"
                     )
+
+                    if on_rule_evaluated:
+                        on_rule_evaluated(idx, validation)
 
                 result_llm_model = self._llm.name
 
@@ -510,6 +518,22 @@ class ValidationService:
         if len(result) > max_size:
             result = result[:max_size] + "\n... (truncated)"
         return result
+
+    @staticmethod
+    def _restore_evaluation(validation: "RuleValidation", saved: dict) -> None:
+        ev = saved.get("evaluation") or {}
+        validation.evaluation = RuleEvaluation(
+            verdict=ev.get("verdict", "fail"),
+            confidence=ev.get("confidence", 0.0),
+            explanation=ev.get("explanation", ""),
+            suggestions=ev.get("suggestions", []),
+            llm_provider=ev.get("llm_provider", ""),
+            tokens_used=ev.get("tokens_used", 0),
+        )
+
+    @staticmethod
+    def _restore_cross_check(validation: "RuleValidation", saved: dict) -> None:
+        ValidationService._restore_evaluation(validation, saved)
 
     @staticmethod
     def _compute_file_hashes(files: List[Tuple[str, str]]) -> dict:
