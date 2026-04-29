@@ -23,11 +23,14 @@ async def list_repos(
     github_app = request.app.state.container.github_app
     user_token = request.headers.get("Authorization", "")[7:]
 
+    db = request.app.state.database
     installations = github_app.get_user_installations(user_token)
     repos = []
     for inst in installations:
         inst_repos = github_app.get_installation_repos(user_token, inst.installation_id)
         for r in inst_repos:
+            config = db.get_repo_config(str(user["id"]), r.full_name)
+            pr_evaluation_enabled = config["pr_evaluation_enabled"] if config else True
             repos.append({
                 "installation_id": r.installation_id,
                 "full_name": r.full_name,
@@ -38,6 +41,7 @@ async def list_repos(
                 "stargazers_count": r.stargazers_count,
                 "clone_url": r.clone_url,
                 "html_url": r.html_url,
+                "pr_evaluation_enabled": pr_evaluation_enabled,
             })
 
     return repos
