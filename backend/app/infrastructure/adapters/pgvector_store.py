@@ -109,10 +109,11 @@ class PgVectorStoreAdapter(VectorStorePort):
                         CREATE INDEX idx_doc_emb_source
                             ON document_embeddings (collection_name, branch, source)
                     """)
-                    # StreamingDiskANN index via pgvectorscale for high-performance ANN
+                    # StreamingDiskANN index via pgvectorscale for high-performance ANN.
+                    # vector_cosine_ops must match the <=> operator used in queries.
                     cur.execute("""
                         CREATE INDEX idx_doc_emb_diskann
-                            ON document_embeddings USING diskann (embedding)
+                            ON document_embeddings USING diskann (embedding vector_cosine_ops)
                     """)
             conn.commit()
         logger.info(f"document_embeddings schema ready (dims={self._dims})")
