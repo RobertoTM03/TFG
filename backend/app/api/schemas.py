@@ -115,6 +115,7 @@ class TaskDetailResponse(BaseModel):
     pr_head_sha: Optional[str] = None
     pr_author: Optional[str] = None
     enable_cross_check: bool = False
+    retry_count: int = 0
 
 
 class PaginatedResponse(BaseModel, Generic[T]):

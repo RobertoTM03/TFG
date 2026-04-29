@@ -189,12 +189,23 @@ export function TaskDetailPage() {
           </div>
         </div>
 
+        {/* Retry warning */}
+        {isRunning && task.retry_count > 4 && (
+          <div className="mt-4 rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-400">
+            La evaluación está tardando más de lo esperado debido a problemas temporales con el servicio.
+            Se reanudará automáticamente — no es necesario hacer nada.
+            {task.retry_count > 1 && (
+              <span className="ml-1 opacity-70">(intento {task.retry_count})</span>
+            )}
+          </div>
+        )}
+
         {/* Progress */}
         {isRunning && (
           <div className="mt-4 space-y-2">
-            <ProgressBar value={task.progress ?? 0} color="primary" />
+            <ProgressBar value={task.progress ?? 0} color={task.retry_count > 4 ? "warning" : "primary"} />
             <p className="text-xs text-[var(--color-text-muted)]">
-              {task.progress_message ?? "Procesando…"} ({task.progress ?? 0}%)
+              {task.progress_message || "Procesando…"}{task.retry_count <= 4 && ` (${task.progress ?? 0}%)`}
             </p>
           </div>
         )}

@@ -378,8 +378,7 @@ class Database:
                            retry_after = NOW() + %s * INTERVAL '1 second',
                            started_at = NULL,
                            error = NULL,
-                           progress = 0,
-                           progress_message = ''
+                           progress_message = 'El servicio está experimentando problemas temporales. La evaluación se reanudará automáticamente.'
                        WHERE id = %s""",
                     (delay_seconds, task_id),
                 )

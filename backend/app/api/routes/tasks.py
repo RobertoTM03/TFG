@@ -184,6 +184,7 @@ async def get_task(
         pr_head_sha=task.get("pr_head_sha"),
         pr_author=task.get("pr_author"),
         enable_cross_check=task.get("enable_cross_check", False),
+        retry_count=task.get("retry_count", 0),
     )
 
 
