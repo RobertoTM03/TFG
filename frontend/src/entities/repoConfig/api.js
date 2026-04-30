@@ -7,3 +7,7 @@ export function fetchRepoConfig(owner, repo) {
 export function saveRepoConfig(owner, repo, config) {
   return apiClient.put(`/api/repos/${owner}/${repo}/config`, config);
 }
+
+export function fetchAppInfo() {
+  return apiClient.get("/api/app-info");
+}

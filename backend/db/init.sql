@@ -124,6 +124,9 @@ CREATE TABLE IF NOT EXISTS repo_configs (
     enable_cross_check      BOOLEAN NOT NULL DEFAULT TRUE,
     pr_evaluation_enabled   BOOLEAN NOT NULL DEFAULT TRUE,
     max_chunks_per_rule     INTEGER NOT NULL DEFAULT 5,
+    llm_model               TEXT,   -- NULL = inherit global LLM_MODEL
+    llm_primary_model       TEXT,   -- NULL = inherit global LLM_PRIMARY_MODEL
+    llm_secondary_model     TEXT,   -- NULL = inherit global LLM_SECONDARY_MODEL
     created_at              TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at              TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     UNIQUE(user_id, repository_full_name)

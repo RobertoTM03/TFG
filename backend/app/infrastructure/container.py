@@ -60,6 +60,7 @@ class Container:
         self._llm_primary: LLMPort | None = None
         self._llm_secondary: LLMPort | None = None
         self._llm_slot: _RpmSlot | None = None
+        self._llm_cache: dict[str, LLMPort] = {}  # cache by model_name
         self._cross_check_service: CrossCheckService | None = None
         self._database: Database | None = None
         self._health_service: HealthService | None = None
@@ -231,6 +232,27 @@ class Container:
                         else rate_limited_llm
                     )
         return self._llm_secondary
+
+    def get_llm(self, model_name: str) -> LLMPort:
+        """Return a singleton LLM adapter for the given model_name."""
+        if model_name not in self._llm_cache:
+            with self._lock:
+                if model_name not in self._llm_cache:
+                    adapter = GeminiLLMAdapter(
+                        settings=self._settings,
+                        model_name=model_name,
+                        max_context_tokens=self._settings.LLM_MAX_CONTEXT_TOKENS,
+                        temperature=self._settings.LLM_TEMPERATURE,
+                        max_retries=self._settings.LLM_MAX_RETRIES,
+                        retry_base_delay=self._settings.LLM_RETRY_BASE_DELAY,
+                    )
+                    rate_limited = RateLimitedLLM(adapter, self._shared_llm_slot)
+                    self._llm_cache[model_name] = (
+                        TracedLLMAdapter(rate_limited)
+                        if self._settings.LANGSMITH_TRACING
+                        else rate_limited
+                    )
+        return self._llm_cache[model_name]
 
     # Cross-Check Service
 

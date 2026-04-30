@@ -74,6 +74,9 @@ class ValidationService:
         max_chunks_per_rule: Optional[int] = None,
         partial_results: Optional[List[dict]] = None,
         on_rule_evaluated: Optional[Callable[[int, "RuleValidation"], None]] = None,
+        llm_override: Optional["LLMPort"] = None,
+        llm_primary_override: Optional["LLMPort"] = None,
+        llm_secondary_override: Optional["LLMPort"] = None,
     ) -> ValidationResult:
         """Run the full validation pipeline with incremental indexing."""
 
@@ -294,6 +297,11 @@ class ValidationService:
             saved = partial_results or []
             cross_check_active = enable_cross_check if enable_cross_check is not None else False
 
+            # Resolve effective LLM instances (per-repo overrides take precedence)
+            effective_llm = llm_override or self._llm
+            effective_llm_primary = llm_primary_override or self._llm_primary
+            effective_llm_secondary = llm_secondary_override or self._llm_secondary
+
             if cross_check_active:
                 _report(80, "Evaluating rules with cross-check (dual-model)...")
                 for idx, validation in enumerate(validations):
@@ -317,8 +325,8 @@ class ValidationService:
                         repository_url=repository_url,
                     )
 
-                    primary_eval = self._llm_primary.evaluate_rule(**eval_kwargs)
-                    secondary_eval = self._llm_secondary.evaluate_rule(**eval_kwargs)
+                    primary_eval = effective_llm_primary.evaluate_rule(**eval_kwargs)
+                    secondary_eval = effective_llm_secondary.evaluate_rule(**eval_kwargs)
 
                     cross_checked = self._cross_check_service.reconcile(primary_eval, secondary_eval)
                     validation.evaluation = cross_checked.final
@@ -333,7 +341,7 @@ class ValidationService:
                     if on_rule_evaluated:
                         on_rule_evaluated(idx, validation)
 
-                result_llm_model = self._llm_primary.name
+                result_llm_model = effective_llm_primary.name
 
             else:
                 _report(80, "Evaluating rules with LLM...")
@@ -351,7 +359,7 @@ class ValidationService:
                     logger.info(f"LLM evaluating rule {idx + 1}: {validation.rule[:80]}...")
 
                     file_contents = [fm.file_content for fm in validation.related_files]
-                    evaluation = self._llm.evaluate_rule(
+                    evaluation = effective_llm.evaluate_rule(
                         rule=validation.rule,
                         repomap=repomap,
                         file_contents=file_contents,
@@ -366,7 +374,7 @@ class ValidationService:
                     if on_rule_evaluated:
                         on_rule_evaluated(idx, validation)
 
-                result_llm_model = self._llm.name
+                result_llm_model = effective_llm.name
 
             _report(98, "Building result...")
 

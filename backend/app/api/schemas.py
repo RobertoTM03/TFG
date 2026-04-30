@@ -141,6 +141,9 @@ class RepoConfigResponse(BaseModel):
     enable_cross_check: bool
     pr_evaluation_enabled: bool
     max_chunks_per_rule: int
+    llm_model: Optional[str] = None
+    llm_primary_model: Optional[str] = None
+    llm_secondary_model: Optional[str] = None
 
 
 class RepoConfigRequest(BaseModel):
@@ -150,6 +153,9 @@ class RepoConfigRequest(BaseModel):
     enable_cross_check: bool = True
     pr_evaluation_enabled: bool = True
     max_chunks_per_rule: int = Field(default=5, ge=1, le=20)
+    llm_model: Optional[str] = None
+    llm_primary_model: Optional[str] = None
+    llm_secondary_model: Optional[str] = None
 
 
 class ContributorSummaryResponse(BaseModel):

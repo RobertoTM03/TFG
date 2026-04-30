@@ -8,9 +8,16 @@ router = APIRouter(prefix="/api", tags=["Repositories"])
 
 @router.get("/app-info", summary="GitHub App public metadata")
 async def app_info(request: Request):
-    """Returns public GitHub App info (slug) so the frontend can build install URLs."""
+    """Returns public GitHub App info and available LLM models."""
+    from app.config import _VALID_LLM_MODELS
     settings = request.app.state.settings
-    return {"app_slug": settings.GITHUB_APP_SLUG}
+    return {
+        "app_slug": settings.GITHUB_APP_SLUG,
+        "available_llm_models": sorted(_VALID_LLM_MODELS),
+        "default_llm_model": settings.LLM_MODEL,
+        "default_llm_primary_model": settings.LLM_PRIMARY_MODEL,
+        "default_llm_secondary_model": settings.LLM_SECONDARY_MODEL,
+    }
 
 
 @router.get("/repos", summary="List repositories where the GitHub App is installed")

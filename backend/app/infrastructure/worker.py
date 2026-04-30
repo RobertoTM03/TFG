@@ -129,6 +129,19 @@ class _WorkerThread:
                 str(task["user_id"]), task["repository_full_name"]
             ) if task.get("user_id") else None
             max_chunks_per_rule = repo_config["max_chunks_per_rule"] if repo_config else None
+
+            # Resolve per-repo LLM overrides (fall back to global settings if NULL)
+            llm_override = None
+            llm_primary_override = None
+            llm_secondary_override = None
+            if repo_config:
+                if repo_config.get("llm_model"):
+                    llm_override = self._container.get_llm(repo_config["llm_model"])
+                if repo_config.get("llm_primary_model"):
+                    llm_primary_override = self._container.get_llm(repo_config["llm_primary_model"])
+                if repo_config.get("llm_secondary_model"):
+                    llm_secondary_override = self._container.get_llm(repo_config["llm_secondary_model"])
+
             service = self._container.validation_service
             langsmith_enabled = bool(
                 self._settings.LANGSMITH_TRACING and self._settings.LANGSMITH_API_KEY
@@ -143,6 +156,9 @@ class _WorkerThread:
                     max_chunks_per_rule=max_chunks_per_rule,
                     partial_results=partial_results,
                     on_rule_evaluated=on_rule_evaluated,
+                    llm_override=llm_override,
+                    llm_primary_override=llm_primary_override,
+                    llm_secondary_override=llm_secondary_override,
                 )
 
             result_json = self._serialize_result(result)

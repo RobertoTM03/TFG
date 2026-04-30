@@ -674,6 +674,9 @@ class Database:
         enable_cross_check: bool,
         pr_evaluation_enabled: bool,
         max_chunks_per_rule: int = 5,
+        llm_model: Optional[str] = None,
+        llm_primary_model: Optional[str] = None,
+        llm_secondary_model: Optional[str] = None,
     ) -> Dict[str, Any]:
         """Insert or update the config for a repo."""
         with self._conn() as conn:
@@ -682,19 +685,22 @@ class Database:
                     """INSERT INTO repo_configs
                            (user_id, repository_full_name, max_evaluations_per_pr,
                             approval_threshold, enable_cross_check, pr_evaluation_enabled,
-                            max_chunks_per_rule)
-                       VALUES (%s, %s, %s, %s, %s, %s, %s)
+                            max_chunks_per_rule, llm_model, llm_primary_model, llm_secondary_model)
+                       VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                        ON CONFLICT (user_id, repository_full_name) DO UPDATE SET
                            max_evaluations_per_pr = EXCLUDED.max_evaluations_per_pr,
                            approval_threshold      = EXCLUDED.approval_threshold,
                            enable_cross_check      = EXCLUDED.enable_cross_check,
                            pr_evaluation_enabled   = EXCLUDED.pr_evaluation_enabled,
                            max_chunks_per_rule     = EXCLUDED.max_chunks_per_rule,
+                           llm_model               = EXCLUDED.llm_model,
+                           llm_primary_model       = EXCLUDED.llm_primary_model,
+                           llm_secondary_model     = EXCLUDED.llm_secondary_model,
                            updated_at              = NOW()
                        RETURNING *""",
                     (user_id, repo_full_name, max_evaluations_per_pr,
                      approval_threshold, enable_cross_check, pr_evaluation_enabled,
-                     max_chunks_per_rule),
+                     max_chunks_per_rule, llm_model, llm_primary_model, llm_secondary_model),
                 )
                 row = cur.fetchone()
             conn.commit()

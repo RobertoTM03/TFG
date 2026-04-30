@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { fetchRepoConfig, saveRepoConfig } from "@/entities/repoConfig/api";
+import { fetchRepoConfig, saveRepoConfig, fetchAppInfo } from "@/entities/repoConfig/api";
 import { Button } from "@/shared/ui/Button";
 import { Input } from "@/shared/ui/Input";
 import { Spinner } from "@/shared/ui/Spinner";
@@ -81,19 +81,56 @@ const DEFAULTS = {
   enable_cross_check: true,
   pr_evaluation_enabled: true,
   max_chunks_per_rule: 5,
+  llm_model: null,
+  llm_primary_model: null,
+  llm_secondary_model: null,
 };
+
+function ModelSelect({ label, description, value, onChange, models, defaultLabel }) {
+  return (
+    <div className="flex flex-col gap-1.5">
+      <label className="text-sm font-medium text-[var(--color-text)]">{label}</label>
+      {description && (
+        <p className="text-xs text-[var(--color-text-muted)]">{description}</p>
+      )}
+      <select
+        value={value ?? ""}
+        onChange={(e) => onChange(e.target.value || null)}
+        className="w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-2)] px-3 py-2 text-sm text-[var(--color-text)] outline-none transition-colors focus:border-indigo-500"
+      >
+        <option value="">{defaultLabel}</option>
+        {models.map((m) => (
+          <option key={m} value={m}>{m}</option>
+        ))}
+      </select>
+    </div>
+  );
+}
 
 export function RepoSettingsForm({ owner, repo }) {
   const [settings, setSettings] = useState(DEFAULTS);
+  const [availableModels, setAvailableModels] = useState([]);
+  const [defaultModels, setDefaultModels] = useState({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    fetchRepoConfig(owner, repo)
-      .then(setSettings)
-      .catch(() => {}) // falls back to defaults already in state
+    Promise.all([
+      fetchRepoConfig(owner, repo),
+      fetchAppInfo(),
+    ])
+      .then(([config, info]) => {
+        setSettings({ ...DEFAULTS, ...config });
+        setAvailableModels(info.available_llm_models ?? []);
+        setDefaultModels({
+          llm_model: info.default_llm_model,
+          llm_primary_model: info.default_llm_primary_model,
+          llm_secondary_model: info.default_llm_secondary_model,
+        });
+      })
+      .catch(() => {})
       .finally(() => setLoading(false));
   }, [owner, repo]);
 
@@ -171,6 +208,39 @@ export function RepoSettingsForm({ owner, repo }) {
           checked={settings.enable_cross_check}
           onChange={(v) => handleChange("enable_cross_check", v)}
         />
+      </div>
+
+      <div className="flex flex-col gap-3">
+        <p className="text-sm font-semibold text-[var(--color-text)]">Modelos LLM</p>
+        {settings.enable_cross_check ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <ModelSelect
+              label="Modelo principal"
+              description="Utilizado como evaluador primario en el cross-check"
+              value={settings.llm_primary_model}
+              onChange={(v) => handleChange("llm_primary_model", v)}
+              models={availableModels}
+              defaultLabel={`Global (${defaultModels.llm_primary_model ?? "…"})`}
+            />
+            <ModelSelect
+              label="Modelo secundario"
+              description="Utilizado como evaluador secundario en el cross-check"
+              value={settings.llm_secondary_model}
+              onChange={(v) => handleChange("llm_secondary_model", v)}
+              models={availableModels}
+              defaultLabel={`Global (${defaultModels.llm_secondary_model ?? "…"})`}
+            />
+          </div>
+        ) : (
+          <ModelSelect
+            label="Modelo LLM"
+            description="Modelo utilizado para la evaluación de reglas"
+            value={settings.llm_model}
+            onChange={(v) => handleChange("llm_model", v)}
+            models={availableModels}
+            defaultLabel={`Global (${defaultModels.llm_model ?? "…"})`}
+          />
+        )}
       </div>
 
       {error && <p className="text-xs text-red-400">{error}</p>}
