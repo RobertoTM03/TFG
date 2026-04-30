@@ -8,14 +8,13 @@ const languageColors = {
   Java: "#b07219",
   Go: "#00ADD8",
   Rust: "#dea584",
+  "C#": "#178600",
   Ruby: "#701516",
   "C++": "#f34b7d",
   C: "#555555",
-  "C#": "#178600",
   PHP: "#4F5D95",
   Swift: "#F05138",
   Kotlin: "#A97BFF",
-  React: "#61dafb",
 };
 
 function getLanguageColor(lang) {

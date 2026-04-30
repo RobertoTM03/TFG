@@ -3,8 +3,13 @@ from typing import List, Optional, Tuple
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from tree_sitter import Language, Parser
 
+import tree_sitter_c_sharp as tscsharp
+import tree_sitter_go as tsgo
+import tree_sitter_java as tsjava
 import tree_sitter_javascript as tsjavascript
 import tree_sitter_python as tspython
+import tree_sitter_rust as tsrust
+import tree_sitter_typescript as tstypescript
 
 from app.domain.models.chunk import CodeChunk
 from app.domain.ports import ChunkingPort
@@ -18,7 +23,12 @@ class TreeSitterChunkingAdapter(ChunkingPort):
         self._parsers = {
             "python": self._create_parser(tspython.language()),
             "javascript": self._create_parser(tsjavascript.language()),
-            "typescript": self._create_parser(tsjavascript.language()),
+            "typescript": self._create_parser(tstypescript.language_typescript()),
+            "tsx": self._create_parser(tstypescript.language_tsx()),
+            "java": self._create_parser(tsjava.language()),
+            "go": self._create_parser(tsgo.language()),
+            "rust": self._create_parser(tsrust.language()),
+            "csharp": self._create_parser(tscsharp.language()),
         }
 
     @staticmethod
@@ -61,7 +71,11 @@ class TreeSitterChunkingAdapter(ChunkingPort):
             ".js": "javascript",
             ".jsx": "javascript",
             ".ts": "typescript",
-            ".tsx": "typescript",
+            ".tsx": "tsx",
+            ".java": "java",
+            ".go": "go",
+            ".rs": "rust",
+            ".cs": "csharp",
         }
         for ext, lang in ext_map.items():
             if filepath.endswith(ext):
@@ -76,19 +90,20 @@ class TreeSitterChunkingAdapter(ChunkingPort):
         tree = parser.parse(source_bytes)
         root_node = tree.root_node
 
-        if language == "python":
-            chunks = self._extract_python_chunks(
-                root_node, source_bytes, file_path
-            )
-        elif language in ("javascript", "typescript"):
-            chunks = self._extract_js_chunks(
-                root_node, source_bytes, file_path, language
-            )
-        else:
-            chunks = []
+        extractor = {
+            "python": self._extract_python_chunks,
+            "javascript": self._extract_js_chunks,
+            "typescript": self._extract_js_chunks,
+            "tsx": self._extract_js_chunks,
+            "java": self._extract_java_chunks,
+            "go": self._extract_go_chunks,
+            "rust": self._extract_rust_chunks,
+            "csharp": self._extract_csharp_chunks,
+        }.get(language)
+
+        chunks = extractor(root_node, source_bytes, file_path, language) if extractor else []
 
         if not chunks:
-            # Fallback if no specific AST nodes were found
             return self._split_with_fallback(file_path, content, language)
 
         return chunks
@@ -100,14 +115,13 @@ class TreeSitterChunkingAdapter(ChunkingPort):
             chunk_size=1000, chunk_overlap=100
         )
         texts = splitter.split_text(content)
-        
+
         chunks = []
         for text in texts:
-            # Approximate line calculation
             start_idx = content.find(text)
             start_line = content.count("\n", 0, start_idx) + 1 if start_idx != -1 else 0
             end_line = start_line + text.count("\n")
-            
+
             chunks.append(
                 CodeChunk(
                     content=text,
@@ -121,7 +135,7 @@ class TreeSitterChunkingAdapter(ChunkingPort):
         return chunks
 
     def _extract_python_chunks(
-        self, root_node, source_bytes: bytes, file_path: str
+        self, root_node, source_bytes: bytes, file_path: str, language: str = "python"
     ) -> List[CodeChunk]:
         chunks: List[CodeChunk] = []
         query_patterns = [
@@ -138,9 +152,7 @@ class TreeSitterChunkingAdapter(ChunkingPort):
                 query = tspython.language().query(pattern)
                 captures = query.captures(root_node)
                 for node, _ in captures:
-                    chunk = self._create_chunk_from_node(
-                        node, source_bytes, file_path, "python"
-                    )
+                    chunk = self._create_chunk_from_node(node, source_bytes, file_path, "python")
                     if chunk:
                         chunks.append(chunk)
             except Exception:
@@ -151,6 +163,11 @@ class TreeSitterChunkingAdapter(ChunkingPort):
         self, root_node, source_bytes: bytes, file_path: str, language: str
     ) -> List[CodeChunk]:
         chunks: List[CodeChunk] = []
+        lang_capsule = (
+            tstypescript.language_tsx() if language == "tsx"
+            else tstypescript.language_typescript() if language == "typescript"
+            else tsjavascript.language()
+        )
         query_patterns = [
             "(function_declaration) @function",
             "(class_declaration) @class",
@@ -160,14 +177,107 @@ class TreeSitterChunkingAdapter(ChunkingPort):
         ]
         for pattern in query_patterns:
             try:
-                query = tsjavascript.language().query(pattern)
+                query = lang_capsule.query(pattern)
                 captures = query.captures(root_node)
                 for node, capture_name in captures:
                     if capture_name == "method" and not self._include_methods:
                         continue
-                    chunk = self._create_chunk_from_node(
-                        node, source_bytes, file_path, language
-                    )
+                    chunk = self._create_chunk_from_node(node, source_bytes, file_path, language)
+                    if chunk:
+                        chunks.append(chunk)
+            except Exception:
+                continue
+        return chunks
+
+    def _extract_java_chunks(
+        self, root_node, source_bytes: bytes, file_path: str, language: str = "java"
+    ) -> List[CodeChunk]:
+        chunks: List[CodeChunk] = []
+        query_patterns = [
+            "(class_declaration) @class",
+            "(interface_declaration) @interface",
+            "(method_declaration) @method",
+            "(constructor_declaration) @constructor",
+        ]
+        for pattern in query_patterns:
+            try:
+                query = tsjava.language().query(pattern)
+                captures = query.captures(root_node)
+                for node, capture_name in captures:
+                    if capture_name in ("method", "constructor") and not self._include_methods:
+                        continue
+                    chunk = self._create_chunk_from_node(node, source_bytes, file_path, language)
+                    if chunk:
+                        chunks.append(chunk)
+            except Exception:
+                continue
+        return chunks
+
+    def _extract_go_chunks(
+        self, root_node, source_bytes: bytes, file_path: str, language: str = "go"
+    ) -> List[CodeChunk]:
+        chunks: List[CodeChunk] = []
+        query_patterns = [
+            "(function_declaration) @function",
+            "(method_declaration) @method",
+            "(type_declaration) @type",
+        ]
+        for pattern in query_patterns:
+            try:
+                query = tsgo.language().query(pattern)
+                captures = query.captures(root_node)
+                for node, capture_name in captures:
+                    if capture_name == "method" and not self._include_methods:
+                        continue
+                    chunk = self._create_chunk_from_node(node, source_bytes, file_path, language)
+                    if chunk:
+                        chunks.append(chunk)
+            except Exception:
+                continue
+        return chunks
+
+    def _extract_rust_chunks(
+        self, root_node, source_bytes: bytes, file_path: str, language: str = "rust"
+    ) -> List[CodeChunk]:
+        chunks: List[CodeChunk] = []
+        query_patterns = [
+            "(function_item) @function",
+            "(impl_item) @impl",
+            "(struct_item) @struct",
+            "(enum_item) @enum",
+            "(trait_item) @trait",
+        ]
+        for pattern in query_patterns:
+            try:
+                query = tsrust.language().query(pattern)
+                captures = query.captures(root_node)
+                for node, _ in captures:
+                    chunk = self._create_chunk_from_node(node, source_bytes, file_path, language)
+                    if chunk:
+                        chunks.append(chunk)
+            except Exception:
+                continue
+        return chunks
+
+    def _extract_csharp_chunks(
+        self, root_node, source_bytes: bytes, file_path: str, language: str = "csharp"
+    ) -> List[CodeChunk]:
+        chunks: List[CodeChunk] = []
+        query_patterns = [
+            "(class_declaration) @class",
+            "(interface_declaration) @interface",
+            "(method_declaration) @method",
+            "(constructor_declaration) @constructor",
+            "(struct_declaration) @struct",
+        ]
+        for pattern in query_patterns:
+            try:
+                query = tscsharp.language().query(pattern)
+                captures = query.captures(root_node)
+                for node, capture_name in captures:
+                    if capture_name in ("method", "constructor") and not self._include_methods:
+                        continue
+                    chunk = self._create_chunk_from_node(node, source_bytes, file_path, language)
                     if chunk:
                         chunks.append(chunk)
             except Exception:
@@ -180,9 +290,7 @@ class TreeSitterChunkingAdapter(ChunkingPort):
         try:
             start_line = node.start_point[0] + 1
             end_line = node.end_point[0] + 1
-            chunk_text = source_bytes[
-                node.start_byte : node.end_byte
-            ].decode("utf-8")
+            chunk_text = source_bytes[node.start_byte: node.end_byte].decode("utf-8")
             node_name = self._extract_node_name(node)
 
             return CodeChunk(
@@ -201,7 +309,7 @@ class TreeSitterChunkingAdapter(ChunkingPort):
     def _extract_node_name(node) -> Optional[str]:
         try:
             for child in node.children:
-                if child.type in ("identifier", "property_identifier"):
+                if child.type in ("identifier", "property_identifier", "name"):
                     return child.text.decode("utf-8")
             return None
         except Exception:
