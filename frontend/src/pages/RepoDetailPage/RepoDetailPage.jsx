@@ -6,7 +6,6 @@ import { fetchRepoContributors } from "@/entities/contributor/api";
 import { RuleList } from "@/widgets/RuleList/RuleList";
 import { TaskTable } from "@/widgets/TaskTable/TaskTable";
 import ContributorTable from "@/widgets/ContributorTable/ContributorTable";
-import { RuleForm } from "@/features/rules/RuleForm";
 import { RepoSettingsForm } from "@/features/settings/RepoSettingsForm";
 import { TriggerValidation } from "@/features/tasks/TriggerValidation";
 import { PageLoader } from "@/shared/ui/Spinner";
@@ -61,6 +60,10 @@ export function RepoDetailPage() {
 
   function handleRulesDeletedMany(ids) {
     setRules((prev) => prev.filter((r) => !ids.includes(r.id)));
+  }
+
+  function handleRuleUpdated(updated) {
+    setRules((prev) => prev.map((r) => r.id === updated.id ? updated : r));
   }
 
   if (loading) return <PageLoader />;
@@ -149,44 +152,16 @@ export function RepoDetailPage() {
 
       {/* Tab content */}
       {tab === "Reglas" && (
-        <div className="flex flex-col gap-6">
-          {rules.length < MAX_RULES && (
-            <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5">
-              <h2 className="text-sm font-semibold text-[var(--color-text)] mb-4">
-                Añadir regla de validación
-              </h2>
-              <RuleForm
-                owner={owner}
-                repo={repo}
-                onCreated={handleRuleCreated}
-              />
-            </div>
-          )}
-          {rules.length >= MAX_RULES && (
-            <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-400">
-              Límite de {MAX_RULES} reglas alcanzado. Elimina alguna para poder
-              añadir más.
-            </div>
-          )}
-          {rules.length > 0 ? (
-            <RuleList
-              rules={rules}
-              owner={owner}
-              repo={repo}
-              maxRules={MAX_RULES}
-              onDeleted={handleRuleDeleted}
-              onDeletedMany={handleRulesDeletedMany}
-              onImported={handleRulesImported}
-            />
-          ) : (
-            <div className="rounded-xl border border-dashed border-[var(--color-border)] p-10 text-center">
-              <p className="text-sm text-[var(--color-text-muted)]">
-                No hay reglas definidas. Añade la primera usando el formulario
-                de arriba.
-              </p>
-            </div>
-          )}
-        </div>
+        <RuleList
+          rules={rules}
+          owner={owner}
+          repo={repo}
+          maxRules={MAX_RULES}
+          onCreated={handleRuleCreated}
+          onUpdated={handleRuleUpdated}
+          onDeleted={handleRuleDeleted}
+          onImported={handleRulesImported}
+        />
       )}
 
       {tab === "Evaluaciones" && (

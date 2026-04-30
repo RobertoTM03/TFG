@@ -64,12 +64,26 @@ class _WorkerThread:
 
         clone_url = None
         installation_id = task.get("github_installation_id")
+        repo_full_name = task.get("repository_full_name", "")
         if installation_id:
             try:
                 inst_token = self._container.github_app.get_installation_token(installation_id)
                 clone_url = repo_url.replace("https://", f"https://x-access-token:{inst_token}@", 1)
             except Exception as exc:
                 logger.warning(f"[{self._name}] Could not get installation token for cloning: {exc}")
+                # Stale installation ID — try a fresh lookup from GitHub API
+                if repo_full_name and "/" in repo_full_name:
+                    owner, repo_name = repo_full_name.split("/", 1)
+                    try:
+                        fresh_id = self._container.github_app.get_installation_id_for_repo(owner, repo_name)
+                        if fresh_id and fresh_id != installation_id:
+                            logger.info(f"[{self._name}] Fresh installation ID: {fresh_id} (was {installation_id})")
+                            if task.get("user_id"):
+                                self._db.upsert_installation(fresh_id, str(task["user_id"]), owner)
+                            inst_token = self._container.github_app.get_installation_token(fresh_id)
+                            clone_url = repo_url.replace("https://", f"https://x-access-token:{inst_token}@", 1)
+                    except Exception as exc2:
+                        logger.warning(f"[{self._name}] Fresh installation lookup also failed: {exc2}")
 
         logger.info(f"[{self._name}] Processing task {task_id} for {repo_url}")
 

@@ -4,6 +4,7 @@ from app.api.dependencies import get_current_user
 from app.infrastructure.limiter import limiter, rate_limit_default
 from app.api.schemas import (
     CreateRuleRequest,
+    UpdateRuleRequest,
     PaginatedResponse,
     RuleResponse,
 )
@@ -41,6 +42,7 @@ async def list_rules(
                 id=str(r["id"]),
                 rule_text=r["rule_text"],
                 position=r["position"],
+                enabled=r.get("enabled", True),
             )
             for r in rows
         ],
@@ -81,6 +83,38 @@ async def create_rule(
         id=str(rule["id"]),
         rule_text=rule["rule_text"],
         position=rule["position"],
+        enabled=rule.get("enabled", True),
+    )
+
+
+@router.patch(
+    "/repos/{owner}/{repo}/rules/{rule_id}",
+    summary="Update a rule",
+    response_model=RuleResponse,
+)
+@limiter.limit(rate_limit_default)
+async def update_rule(
+    owner: str,
+    repo: str,
+    rule_id: str,
+    body: UpdateRuleRequest,
+    request: Request,
+    user: dict = Depends(get_current_user),
+):
+    db = request.app.state.database
+    rule = db.update_rule(
+        rule_id,
+        str(user["id"]),
+        rule_text=body.rule_text,
+        enabled=body.enabled,
+    )
+    if not rule:
+        raise HTTPException(status_code=404, detail="Rule not found")
+    return RuleResponse(
+        id=str(rule["id"]),
+        rule_text=rule["rule_text"],
+        position=rule["position"],
+        enabled=rule.get("enabled", True),
     )
 
 

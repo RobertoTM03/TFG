@@ -2,6 +2,7 @@ import json
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, WebSocket
+from starlette.websockets import WebSocketDisconnect
 
 from app.api.dependencies import get_current_user
 from app.infrastructure.limiter import limiter, rate_limit_validate, rate_limit_default
@@ -48,7 +49,7 @@ async def validate_repo(
             detail="No rules defined for this repository",
         )
 
-    rule_texts = [r["rule_text"] for r in rules]
+    rule_texts = [r["rule_text"] for r in rules if r.get("enabled", True)]
     repo_url = f"https://github.com/{full_name}.git"
 
     # Resolve installation_id: DB cache first, then GitHub API as fallback
@@ -202,6 +203,8 @@ async def ws_tasks(websocket: WebSocket):
         auth_text = await websocket.receive_text()
         auth_data = json.loads(auth_text)
         token = auth_data.get("token", "")
+    except WebSocketDisconnect:
+        return
     except Exception:
         await websocket.close(code=4001, reason="Invalid auth message")
         return

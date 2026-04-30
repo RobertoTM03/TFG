@@ -16,6 +16,10 @@ export function createRule(owner, repo, ruleText) {
   });
 }
 
+export function updateRule(owner, repo, ruleId, patch) {
+  return apiClient.patch(`/api/repos/${owner}/${repo}/rules/${ruleId}`, patch);
+}
+
 export function deleteRule(owner, repo, ruleId) {
   return apiClient.delete(`/api/repos/${owner}/${repo}/rules/${ruleId}`);
 }

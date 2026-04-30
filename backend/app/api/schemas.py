@@ -23,10 +23,17 @@ class UserResponse(BaseModel):
     avatar_url: str
 
 
+class UpdateRuleRequest(BaseModel):
+    """Body for PATCH /api/repos/{owner}/{repo}/rules/{rule_id}."""
+    rule_text: Optional[str] = Field(None, min_length=1, max_length=500)
+    enabled: Optional[bool] = None
+
+
 class RuleResponse(BaseModel):
     id: str
     rule_text: str
     position: int
+    enabled: bool = True
 
 
 class TaskCreatedResponse(BaseModel):

@@ -33,6 +33,7 @@ CREATE TABLE IF NOT EXISTS rules (
     repository_full_name  TEXT NOT NULL,
     rule_text             TEXT NOT NULL,
     position              INTEGER NOT NULL DEFAULT 0,
+    enabled               BOOLEAN NOT NULL DEFAULT TRUE,
     created_at            TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 

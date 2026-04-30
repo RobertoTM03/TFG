@@ -4,6 +4,50 @@ import { Button } from "@/shared/ui/Button";
 import { Input } from "@/shared/ui/Input";
 import { Spinner } from "@/shared/ui/Spinner";
 
+function thresholdColor(pct) {
+  if (pct < 40) return { track: "#ef4444", text: "text-red-400" };
+  if (pct < 70) return { track: "#f59e0b", text: "text-amber-400" };
+  if (pct < 90) return { track: "#6366f1", text: "text-indigo-400" };
+  return { track: "#22c55e", text: "text-emerald-400" };
+}
+
+function ThresholdSlider({ value, onChange }) {
+  const pct = Math.round(value * 100);
+  const { track, text } = thresholdColor(pct);
+  return (
+    <div className="flex flex-col gap-2">
+      <div className="flex items-center justify-between">
+        <span className="text-sm font-medium text-[var(--color-text)]">
+          Umbral de aprobación
+        </span>
+        <span className={`text-lg font-bold tabular-nums ${text}`}>
+          {pct}%
+        </span>
+      </div>
+      <input
+        type="range"
+        min={0}
+        max={100}
+        step={5}
+        value={pct}
+        onChange={(e) => onChange(parseInt(e.target.value, 10) / 100)}
+        className="w-full h-2 rounded-full appearance-none cursor-pointer"
+        style={{
+          background: `linear-gradient(to right, ${track} ${pct}%, var(--color-border) ${pct}%)`,
+          accentColor: track,
+        }}
+      />
+      <div className="flex justify-between text-xs text-[var(--color-text-muted)]">
+        <span>0%</span>
+        <span className="text-xs text-[var(--color-text-muted)]">
+          Porcentaje mínimo de reglas superadas para aprobar el PR
+        </span>
+        <span>100%</span>
+      </div>
+    </div>
+  );
+}
+
 function Toggle({ label, description, checked, onChange }) {
   return (
     <label className="flex items-start justify-between gap-4 cursor-pointer">
@@ -97,18 +141,6 @@ export function RepoSettingsForm({ owner, repo }) {
           hint="Número máximo de veces que se puede evaluar un PR"
         />
         <Input
-          label="Umbral de aprobación (%)"
-          type="number"
-          min={0}
-          max={100}
-          step={5}
-          value={Math.round(settings.approval_threshold * 100)}
-          onChange={(e) =>
-            handleChange("approval_threshold", parseInt(e.target.value, 10) / 100)
-          }
-          hint="Porcentaje mínimo de normas superadas para aprobar el PR"
-        />
-        <Input
           label="Chunks por regla"
           type="number"
           min={1}
@@ -120,6 +152,11 @@ export function RepoSettingsForm({ owner, repo }) {
           hint="Número de fragmentos de código que se pasan al LLM por cada regla"
         />
       </div>
+
+      <ThresholdSlider
+        value={settings.approval_threshold}
+        onChange={(v) => handleChange("approval_threshold", v)}
+      />
 
       <div className="flex flex-col gap-4">
         <Toggle

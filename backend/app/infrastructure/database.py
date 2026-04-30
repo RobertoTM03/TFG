@@ -202,14 +202,46 @@ class Database:
 
                 cur.execute(
                     """INSERT INTO rules
-                           (user_id, repository_full_name, rule_text, position)
-                       VALUES (%s, %s, %s, %s)
+                           (user_id, repository_full_name, rule_text, position, enabled)
+                       VALUES (%s, %s, %s, %s, TRUE)
                        RETURNING *""",
                     (user_id, repo_full_name, rule_text, next_pos),
                 )
                 row = cur.fetchone()
             conn.commit()
             return dict(row)
+
+    def update_rule(
+        self,
+        rule_id: str,
+        user_id: str,
+        rule_text: str = None,
+        enabled: bool = None,
+    ) -> dict | None:
+        sets = []
+        vals = []
+        if rule_text is not None:
+            sets.append("rule_text = %s")
+            vals.append(rule_text)
+        if enabled is not None:
+            sets.append("enabled = %s")
+            vals.append(enabled)
+        if not sets:
+            return None
+        vals.extend([rule_id, user_id])
+        with self._conn() as conn:
+            with conn.cursor(
+                cursor_factory=psycopg2.extras.RealDictCursor,
+            ) as cur:
+                cur.execute(
+                    f"""UPDATE rules SET {', '.join(sets)}
+                        WHERE id = %s AND user_id = %s
+                        RETURNING *""",
+                    vals,
+                )
+                row = cur.fetchone()
+            conn.commit()
+            return dict(row) if row else None
 
     def delete_rule(self, rule_id: str, user_id: str) -> bool:
         with self._conn() as conn:

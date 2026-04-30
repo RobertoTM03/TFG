@@ -129,7 +129,7 @@ async def _handle_pull_request(payload: dict, request: Request) -> dict:
     if not rules:
         return {"ignored": True, "reason": "no rules defined for this repository"}
 
-    rule_texts = [r["rule_text"] for r in rules]
+    rule_texts = [r["rule_text"] for r in rules if r.get("enabled", True)]
 
     # Set pending commit status immediately so the check turns yellow
     try:

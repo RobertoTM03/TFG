@@ -44,9 +44,9 @@ export function RepoCard({ repo }) {
           <Badge color={repo.private ? "muted" : "primary"}>
             {repo.private ? "Privado" : "Público"}
           </Badge>
-          <Badge color={repo.pr_evaluation_enabled ? "success" : "muted"}>
-            {repo.pr_evaluation_enabled ? "Evaluación activa" : "Evaluación desactivada"}
-          </Badge>
+          {repo.pr_evaluation_enabled && (
+            <Badge color="success">Evaluación automática</Badge>
+          )}
         </div>
 
         <div className="mt-1.5 flex items-center gap-4 flex-wrap">

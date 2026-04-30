@@ -26,8 +26,8 @@ class Settings(BaseSettings):
     # PostgreSQL
     POSTGRES_HOST: str = "db"
     POSTGRES_PORT: int = 5432
-    POSTGRES_USER: str = "tfg"
-    POSTGRES_PASSWORD: str = "tfg_password"
+    POSTGRES_USER: str
+    POSTGRES_PASSWORD: str
     POSTGRES_DB: str = "tfg_validator"
 
     # Rules
