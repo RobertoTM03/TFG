@@ -1,5 +1,7 @@
 import threading
 
+from openai import AzureOpenAI
+
 from app.application.services.cross_check_service import CrossCheckService
 from app.application.services.health_service import HealthService
 from app.application.services.validation_service import ValidationService
@@ -14,6 +16,7 @@ from app.domain.ports import (
     VectorStorePort,
 )
 from app.domain.models.embedding_model import SUPPORTED_EMBEDDING_MODELS
+from app.domain.models.llm_registry import LLM_REGISTRY
 from app.infrastructure.adapters.gemini_embedding import GeminiEmbeddingAdapter
 from app.infrastructure.adapters.voyage_embedding import VoyageEmbeddingAdapter
 from app.infrastructure.adapters.tree_sitter_chunker import TreeSitterChunkingAdapter
@@ -22,6 +25,7 @@ from app.infrastructure.adapters.pgvector_store import PgVectorStoreAdapter
 from app.infrastructure.adapters.git_repository import GitRepositoryAdapter
 from app.infrastructure.adapters.tree_sitter_repomap import TreeSitterRepomapAdapter
 from app.infrastructure.adapters.gemini_llm import GeminiLLMAdapter
+from app.infrastructure.adapters.azure_openai_llm import AzureOpenAILLMAdapter
 from app.infrastructure.adapters.github_app_adapter import GitHubAppAdapter
 from app.infrastructure.rate_limiter import RateLimitedEmbeddings, RateLimitedLLM, _RpmSlot
 from app.infrastructure.tracing import TracedLLMAdapter, TracedVectorStoreAdapter
@@ -61,6 +65,7 @@ class Container:
         self._llm_secondary: LLMPort | None = None
         self._llm_slot: _RpmSlot | None = None
         self._llm_cache: dict[str, LLMPort] = {}  # cache by model_name
+        self._azure_openai_client: AzureOpenAI | None = None
         self._cross_check_service: CrossCheckService | None = None
         self._database: Database | None = None
         self._health_service: HealthService | None = None
@@ -164,6 +169,57 @@ class Container:
                     )
         return self._llm_slot
 
+    # Shared Azure OpenAI client (one per process — all deployments share it)
+
+    @property
+    def _azure_client(self) -> AzureOpenAI:
+        if self._azure_openai_client is None:
+            with self._lock:
+                if self._azure_openai_client is None:
+                    self._azure_openai_client = AzureOpenAI(
+                        api_key=self._settings.AZURE_OPENAI_API_KEY,
+                        azure_endpoint=self._settings.AZURE_OPENAI_ENDPOINT,
+                        api_version=self._settings.AZURE_OPENAI_API_VERSION,
+                    )
+        return self._azure_openai_client
+
+    def get_llm(self, model_name: str) -> LLMPort:
+        """Return a singleton LLM adapter for the given model_name."""
+        if model_name not in self._llm_cache:
+            with self._lock:
+                if model_name not in self._llm_cache:
+                    spec = LLM_REGISTRY.get(model_name)
+                    if spec is None:
+                        raise ValueError(f"Unknown LLM model '{model_name}'")
+
+                    if spec.provider == "azure":
+                        adapter: LLMPort = AzureOpenAILLMAdapter(
+                            client=self._azure_client,
+                            deployment=spec.model_id,
+                            max_context_tokens=self._settings.LLM_MAX_CONTEXT_TOKENS,
+                            temperature=self._settings.LLM_TEMPERATURE,
+                            supports_temperature=spec.supports_temperature,
+                            max_retries=self._settings.LLM_MAX_RETRIES,
+                            retry_base_delay=self._settings.LLM_RETRY_BASE_DELAY,
+                        )
+                    else:
+                        adapter = GeminiLLMAdapter(
+                            settings=self._settings,
+                            model_name=spec.model_id,
+                            max_context_tokens=self._settings.LLM_MAX_CONTEXT_TOKENS,
+                            temperature=self._settings.LLM_TEMPERATURE,
+                            max_retries=self._settings.LLM_MAX_RETRIES,
+                            retry_base_delay=self._settings.LLM_RETRY_BASE_DELAY,
+                        )
+
+                    rate_limited = RateLimitedLLM(adapter, self._shared_llm_slot)
+                    self._llm_cache[model_name] = (
+                        TracedLLMAdapter(rate_limited)
+                        if self._settings.LANGSMITH_TRACING
+                        else rate_limited
+                    )
+        return self._llm_cache[model_name]
+
     # LLM
 
     @property
@@ -171,20 +227,7 @@ class Container:
         if self._llm is None:
             with self._lock:
                 if self._llm is None:
-                    adapter = GeminiLLMAdapter(
-                        settings=self._settings,
-                        model_name=self._settings.LLM_MODEL,
-                        max_context_tokens=self._settings.LLM_MAX_CONTEXT_TOKENS,
-                        temperature=self._settings.LLM_TEMPERATURE,
-                        max_retries=self._settings.LLM_MAX_RETRIES,
-                        retry_base_delay=self._settings.LLM_RETRY_BASE_DELAY,
-                    )
-                    rate_limited_llm = RateLimitedLLM(adapter, self._shared_llm_slot)
-                    self._llm = (
-                        TracedLLMAdapter(rate_limited_llm)
-                        if self._settings.LANGSMITH_TRACING
-                        else rate_limited_llm
-                    )
+                    self._llm = self.get_llm(self._settings.LLM_MODEL)
         return self._llm
 
     # Primary LLM (used when ENABLE_CROSS_CHECK=True)
@@ -194,20 +237,7 @@ class Container:
         if self._llm_primary is None:
             with self._lock:
                 if self._llm_primary is None:
-                    adapter = GeminiLLMAdapter(
-                        settings=self._settings,
-                        model_name=self._settings.LLM_PRIMARY_MODEL,
-                        max_context_tokens=self._settings.LLM_MAX_CONTEXT_TOKENS,
-                        temperature=self._settings.LLM_TEMPERATURE,
-                        max_retries=self._settings.LLM_MAX_RETRIES,
-                        retry_base_delay=self._settings.LLM_RETRY_BASE_DELAY,
-                    )
-                    rate_limited_llm = RateLimitedLLM(adapter, self._shared_llm_slot)
-                    self._llm_primary = (
-                        TracedLLMAdapter(rate_limited_llm)
-                        if self._settings.LANGSMITH_TRACING
-                        else rate_limited_llm
-                    )
+                    self._llm_primary = self.get_llm(self._settings.LLM_PRIMARY_MODEL)
         return self._llm_primary
 
     # Secondary LLM (used when ENABLE_CROSS_CHECK=True)
@@ -217,42 +247,8 @@ class Container:
         if self._llm_secondary is None:
             with self._lock:
                 if self._llm_secondary is None:
-                    adapter = GeminiLLMAdapter(
-                        settings=self._settings,
-                        model_name=self._settings.LLM_SECONDARY_MODEL,
-                        max_context_tokens=self._settings.LLM_MAX_CONTEXT_TOKENS,
-                        temperature=self._settings.LLM_TEMPERATURE,
-                        max_retries=self._settings.LLM_MAX_RETRIES,
-                        retry_base_delay=self._settings.LLM_RETRY_BASE_DELAY,
-                    )
-                    rate_limited_llm = RateLimitedLLM(adapter, self._shared_llm_slot)
-                    self._llm_secondary = (
-                        TracedLLMAdapter(rate_limited_llm)
-                        if self._settings.LANGSMITH_TRACING
-                        else rate_limited_llm
-                    )
+                    self._llm_secondary = self.get_llm(self._settings.LLM_SECONDARY_MODEL)
         return self._llm_secondary
-
-    def get_llm(self, model_name: str) -> LLMPort:
-        """Return a singleton LLM adapter for the given model_name."""
-        if model_name not in self._llm_cache:
-            with self._lock:
-                if model_name not in self._llm_cache:
-                    adapter = GeminiLLMAdapter(
-                        settings=self._settings,
-                        model_name=model_name,
-                        max_context_tokens=self._settings.LLM_MAX_CONTEXT_TOKENS,
-                        temperature=self._settings.LLM_TEMPERATURE,
-                        max_retries=self._settings.LLM_MAX_RETRIES,
-                        retry_base_delay=self._settings.LLM_RETRY_BASE_DELAY,
-                    )
-                    rate_limited = RateLimitedLLM(adapter, self._shared_llm_slot)
-                    self._llm_cache[model_name] = (
-                        TracedLLMAdapter(rate_limited)
-                        if self._settings.LANGSMITH_TRACING
-                        else rate_limited
-                    )
-        return self._llm_cache[model_name]
 
     # Cross-Check Service
 

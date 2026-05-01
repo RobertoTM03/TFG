@@ -2,9 +2,10 @@ from pydantic import field_validator, model_validator
 from pydantic_settings import BaseSettings
 
 from app.domain.models.embedding_model import SUPPORTED_EMBEDDING_MODELS
+from app.domain.models.llm_registry import VALID_LLM_MODEL_IDS
 
 _VALID_CHUNKING_STRATEGIES = {"tree-sitter", "tree-sitter-limited"}
-_VALID_LLM_MODELS = {"gemini-2.5-flash","gemini-3.1-flash-lite-preview"}
+_VALID_LLM_MODELS = VALID_LLM_MODEL_IDS
 
 class Settings(BaseSettings):
     """All configurable values for the application."""
@@ -22,6 +23,11 @@ class Settings(BaseSettings):
     # API Keys
     GOOGLE_API_KEY: str = ""
     VOYAGE_API_KEY: str = ""
+
+    # Azure OpenAI (optional — required only when using azure/* models)
+    AZURE_OPENAI_API_KEY: str = ""
+    AZURE_OPENAI_ENDPOINT: str = ""
+    AZURE_OPENAI_API_VERSION: str = "2024-12-01-preview"
 
     # PostgreSQL
     POSTGRES_HOST: str = "db"
@@ -176,6 +182,25 @@ class Settings(BaseSettings):
         if self.EMBEDDING_MODEL == "voyage" and not self.VOYAGE_API_KEY:
             raise ValueError(
                 "EMBEDDING_MODEL='voyage' requires VOYAGE_API_KEY to be set"
+            )
+        return self
+
+    @model_validator(mode="after")
+    def _check_azure_config(self) -> "Settings":
+        from app.domain.models.llm_registry import LLM_REGISTRY
+        azure_models_in_use = [
+            m for m in (
+                self.LLM_MODEL, self.LLM_PRIMARY_MODEL, self.LLM_SECONDARY_MODEL
+            )
+            if LLM_REGISTRY.get(m) and LLM_REGISTRY[m].provider == "azure"
+        ]
+        if azure_models_in_use and not self.AZURE_OPENAI_API_KEY:
+            raise ValueError(
+                f"Azure models {azure_models_in_use} require AZURE_OPENAI_API_KEY"
+            )
+        if azure_models_in_use and not self.AZURE_OPENAI_ENDPOINT:
+            raise ValueError(
+                f"Azure models {azure_models_in_use} require AZURE_OPENAI_ENDPOINT"
             )
         return self
 

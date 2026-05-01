@@ -9,11 +9,15 @@ router = APIRouter(prefix="/api", tags=["Repositories"])
 @router.get("/app-info", summary="GitHub App public metadata")
 async def app_info(request: Request):
     """Returns public GitHub App info and available LLM models."""
-    from app.config import _VALID_LLM_MODELS
+    from app.domain.models.llm_registry import LLM_REGISTRY
     settings = request.app.state.settings
+    available_models = [
+        {"id": key, "display_name": spec.display_name, "provider": spec.provider}
+        for key, spec in sorted(LLM_REGISTRY.items())
+    ]
     return {
         "app_slug": settings.GITHUB_APP_SLUG,
-        "available_llm_models": sorted(_VALID_LLM_MODELS),
+        "available_llm_models": available_models,
         "default_llm_model": settings.LLM_MODEL,
         "default_llm_primary_model": settings.LLM_PRIMARY_MODEL,
         "default_llm_secondary_model": settings.LLM_SECONDARY_MODEL,

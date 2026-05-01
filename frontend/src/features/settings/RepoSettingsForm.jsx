@@ -96,11 +96,12 @@ function ModelSelect({ label, description, value, onChange, models, defaultLabel
       <select
         value={value ?? ""}
         onChange={(e) => onChange(e.target.value || null)}
-        className="w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-2)] px-3 py-2 text-sm text-[var(--color-text)] outline-none transition-colors focus:border-indigo-500"
+        className="w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-2)] px-3 py-2 text-sm text-[var(--color-text)] outline-none transition-colors focus:border-indigo-500 appearance-none cursor-pointer"
+        style={{ backgroundImage: "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%236b7280' d='M6 8L1 3h10z'/%3E%3C/svg%3E\")", backgroundRepeat: "no-repeat", backgroundPosition: "right 0.75rem center" }}
       >
         <option value="">{defaultLabel}</option>
         {models.map((m) => (
-          <option key={m} value={m}>{m}</option>
+          <option key={m.id} value={m.id}>{m.display_name}</option>
         ))}
       </select>
     </div>
@@ -123,11 +124,13 @@ export function RepoSettingsForm({ owner, repo }) {
     ])
       .then(([config, info]) => {
         setSettings({ ...DEFAULTS, ...config });
-        setAvailableModels(info.available_llm_models ?? []);
+        const models = info.available_llm_models ?? [];
+        setAvailableModels(models);
+        const findName = (id) => models.find((m) => m.id === id)?.display_name ?? id;
         setDefaultModels({
-          llm_model: info.default_llm_model,
-          llm_primary_model: info.default_llm_primary_model,
-          llm_secondary_model: info.default_llm_secondary_model,
+          llm_model: findName(info.default_llm_model),
+          llm_primary_model: findName(info.default_llm_primary_model),
+          llm_secondary_model: findName(info.default_llm_secondary_model),
         });
       })
       .catch(() => {})

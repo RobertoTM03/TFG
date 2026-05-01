@@ -3,50 +3,49 @@ import re
 import time
 from typing import List
 
-from google import genai
-from google.genai import types, errors
+from openai import AzureOpenAI, APIStatusError, APIConnectionError
 from loguru import logger
 
-from app.config import Settings
 from app.domain.exceptions import LLMUnavailableError
 from app.domain.models.evaluation import RuleEvaluation
 from app.domain.ports import LLMPort
 from app.infrastructure.token_limiter import TokenLimiter
 from app.domain.llm_prompts import LLM_SYSTEM_PROMPT as _SYSTEM_PROMPT
 
+_SERVER_ERROR_MAX_RETRIES = 2
 
-class GeminiLLMAdapter(LLMPort):
-    """LLM adapter using Google Gemini for rule evaluation."""
+
+class AzureOpenAILLMAdapter(LLMPort):
+    """LLM adapter using Azure OpenAI for rule evaluation.
+
+    Receives a shared AzureOpenAI client — do not instantiate the client here.
+    Multiple instances (different deployments) safely share the same client.
+    """
 
     def __init__(
         self,
-        settings: Settings,
-        model_name: str = "gemini-2.5-flash",
-        max_context_tokens: int = 900_000,
+        client: AzureOpenAI,
+        deployment: str,
+        max_context_tokens: int = 200_000,
         temperature: float = 0.2,
+        supports_temperature: bool = False,
         max_retries: int = 3,
         retry_base_delay: float = 35.0,
     ) -> None:
-        self._client = genai.Client(api_key=settings.GOOGLE_API_KEY)
-        
-        self._model_name = model_name
+        self._client = client
+        self._deployment = deployment
         self._max_context_tokens = max_context_tokens
         self._temperature = temperature
+        self._supports_temperature = supports_temperature
         self._max_retries = max_retries
         self._retry_base_delay = retry_base_delay
         self._limiter = TokenLimiter(max_context_tokens)
-        
-        self._eval_config = types.GenerateContentConfig(
-            system_instruction=_SYSTEM_PROMPT,
-            temperature=temperature,
-            response_mime_type="application/json",
-        )
 
     # LLMPort interface
 
     @property
     def name(self) -> str:
-        return f"gemini ({self._model_name})"
+        return f"azure ({self._deployment})"
 
     @property
     def max_context_tokens(self) -> int:
@@ -59,17 +58,11 @@ class GeminiLLMAdapter(LLMPort):
         file_contents: List[str],
         repository_url: str,
     ) -> RuleEvaluation:
-        """Send a single rule + context to Gemini and parse the response."""
-
-        # Build the user prompt with token-limited context
-        prompt = self._build_evaluation_prompt(
-            rule, repomap, file_contents, repository_url,
-        )
+        prompt = self._build_evaluation_prompt(rule, repomap, file_contents, repository_url)
 
         try:
-            raw_text = self._call_with_retry(self._eval_config, prompt)
+            raw_text = self._call_with_retry(prompt)
             tokens_used = self._estimate_tokens(prompt + raw_text)
-
             evaluation = self._parse_response(raw_text)
             evaluation.llm_provider = self.name
             evaluation.tokens_used = tokens_used
@@ -78,7 +71,7 @@ class GeminiLLMAdapter(LLMPort):
         except LLMUnavailableError:
             raise
         except Exception as e:
-            logger.error(f"Gemini evaluation failed for rule '{rule[:60]}': {e}")
+            logger.error(f"Azure OpenAI evaluation failed for rule '{rule[:60]}': {e}")
             return RuleEvaluation(
                 verdict="fail",
                 confidence=0.0,
@@ -90,71 +83,70 @@ class GeminiLLMAdapter(LLMPort):
 
     # Retry logic
 
-    def _call_with_retry(self, config: types.GenerateContentConfig, prompt: str) -> str:
-        """Call a Gemini model with exponential backoff on 429 and 5xx errors."""
-        _SERVER_ERROR_MAX_RETRIES = 2
-
+    def _call_with_retry(self, prompt: str) -> str:
         rate_limit_attempts = 0
         server_error_attempts = 0
-        last_exc = None
 
         while True:
             try:
-                response = self._client.models.generate_content(
-                    model=self._model_name,
-                    contents=prompt,
-                    config=config,
+                kwargs = dict(
+                    model=self._deployment,
+                    messages=[
+                        {"role": "system", "content": _SYSTEM_PROMPT},
+                        {"role": "user", "content": prompt},
+                    ],
+                    max_completion_tokens=8000,
                 )
-                return response.text.strip()
-            except errors.ServerError as exc:
-                last_exc = exc
-                if server_error_attempts >= _SERVER_ERROR_MAX_RETRIES:
-                    logger.error(
-                        f"LLM server error: all "
-                        f"{_SERVER_ERROR_MAX_RETRIES + 1} attempts exhausted."
-                    )
-                    raise LLMUnavailableError(str(exc)) from exc
-                delay = 5.0 * (2 ** server_error_attempts)
-                server_error_attempts += 1
-                logger.warning(
-                    f"LLM server error (attempt {server_error_attempts}/"
-                    f"{_SERVER_ERROR_MAX_RETRIES + 1}). Retrying in {delay:.0f}s..."
-                )
-                time.sleep(delay)
-            except errors.ClientError as exc:
-                last_exc = exc
-                if exc.code == 429:
+                if self._supports_temperature:
+                    kwargs["temperature"] = self._temperature
+                response = self._client.chat.completions.create(**kwargs)
+                return response.choices[0].message.content.strip()
+
+            except APIStatusError as exc:
+                if exc.status_code == 429:
                     if rate_limit_attempts >= self._max_retries:
                         logger.error(
-                            f"LLM 429 rate-limit: all {self._max_retries + 1} "
+                            f"Azure OpenAI 429 rate-limit: all {self._max_retries + 1} "
                             f"attempts exhausted."
                         )
                         raise LLMUnavailableError(str(exc)) from exc
                     delay = self._retry_base_delay * (2 ** rate_limit_attempts)
                     rate_limit_attempts += 1
                     logger.warning(
-                        f"LLM 429 rate-limit (attempt {rate_limit_attempts}/"
+                        f"Azure OpenAI 429 rate-limit (attempt {rate_limit_attempts}/"
                         f"{self._max_retries + 1}). Retrying in {delay:.0f}s..."
                     )
                     time.sleep(delay)
-                elif exc.code in (500, 503):
+                elif exc.status_code in (500, 503):
                     if server_error_attempts >= _SERVER_ERROR_MAX_RETRIES:
                         logger.error(
-                            f"LLM {exc.code} server error: all "
+                            f"Azure OpenAI {exc.status_code} server error: all "
                             f"{_SERVER_ERROR_MAX_RETRIES + 1} attempts exhausted."
                         )
                         raise LLMUnavailableError(str(exc)) from exc
                     delay = 5.0 * (2 ** server_error_attempts)
                     server_error_attempts += 1
                     logger.warning(
-                        f"LLM {exc.code} server error (attempt {server_error_attempts}/"
+                        f"Azure OpenAI {exc.status_code} server error "
+                        f"(attempt {server_error_attempts}/"
                         f"{_SERVER_ERROR_MAX_RETRIES + 1}). Retrying in {delay:.0f}s..."
                     )
                     time.sleep(delay)
                 else:
                     raise
 
-    # Prompt builders
+            except APIConnectionError as exc:
+                if server_error_attempts >= _SERVER_ERROR_MAX_RETRIES:
+                    raise LLMUnavailableError(str(exc)) from exc
+                delay = 5.0 * (2 ** server_error_attempts)
+                server_error_attempts += 1
+                logger.warning(
+                    f"Azure OpenAI connection error (attempt {server_error_attempts}/"
+                    f"{_SERVER_ERROR_MAX_RETRIES + 1}). Retrying in {delay:.0f}s..."
+                )
+                time.sleep(delay)
+
+    # Prompt builder (same logic as GeminiLLMAdapter)
 
     def _build_evaluation_prompt(
         self,
@@ -163,45 +155,31 @@ class GeminiLLMAdapter(LLMPort):
         file_contents: List[str],
         repository_url: str,
     ) -> str:
-        """Build the user prompt, truncating context to fit token limits."""
-        # Reserve tokens for system prompt, rule, framing, and response
         reserved = 1500
         available = self._max_context_tokens - reserved
 
-        # Rule section (always included in full)
         rule_section = f"## Rule to evaluate\n{rule}"
-        rule_tokens = self._estimate_tokens(rule_section)
-        available -= rule_tokens
+        available -= self._estimate_tokens(rule_section)
 
-        # Repomap -- cap at 15% of total available
         repomap_budget = int(available * 0.15)
-        truncated_repomap = self._limiter.truncate_text(
-            repomap, max_tokens=repomap_budget,
-        )
+        truncated_repomap = self._limiter.truncate_text(repomap, max_tokens=repomap_budget)
         repomap_section = f"## Repository Map\n{truncated_repomap}"
-        repomap_tokens = self._estimate_tokens(repomap_section)
-        available -= repomap_tokens
+        available -= self._estimate_tokens(repomap_section)
 
-        # File contents -- fill the rest of the budget
-        files_section = self._limiter.fit_file_contents(
-            file_contents, max_tokens=available,
-        )
+        files_section = self._limiter.fit_file_contents(file_contents, max_tokens=available)
 
-        prompt = (
+        return (
             f"Repository: {repository_url}\n\n"
             f"{repomap_section}\n\n"
             f"## Relevant code files\n{files_section}\n\n"
             f"{rule_section}"
         )
-        return prompt
 
-    # Response parsing
+    # Response parsing (same logic as GeminiLLMAdapter)
 
     @staticmethod
     def _parse_response(raw_text: str) -> RuleEvaluation:
-        """Parse the JSON response from Gemini into a RuleEvaluation."""
         try:
-            # Strip potential markdown fences
             cleaned = raw_text.strip()
             if cleaned.startswith("```"):
                 cleaned = re.sub(r"^```(?:json)?\s*", "", cleaned)
@@ -222,7 +200,7 @@ class GeminiLLMAdapter(LLMPort):
                 suggestions=data.get("suggestions", []),
             )
         except (json.JSONDecodeError, KeyError, TypeError, ValueError) as e:
-            logger.warning(f"Failed to parse LLM response: {e}")
+            logger.warning(f"Failed to parse Azure OpenAI response: {e}")
             return RuleEvaluation(
                 verdict="fail",
                 confidence=0.0,
@@ -230,9 +208,6 @@ class GeminiLLMAdapter(LLMPort):
                 suggestions=[],
             )
 
-    # Token estimation
-
     @staticmethod
     def _estimate_tokens(text: str) -> int:
-        """Rough token estimate: ~4 chars per token for code."""
         return len(text) // 4
