@@ -38,7 +38,7 @@ async def callback(code: str, request: Request):
     the user record, and redirect the browser to the frontend with the
     token as a query parameter."""
     settings = request.app.state.settings
-    db = request.app.state.database
+    auth_service = request.app.state.container.auth_service
 
     # Exchange code for access token
     async with httpx.AsyncClient() as client:
@@ -71,7 +71,7 @@ async def callback(code: str, request: Request):
         gh_user = resp.json()
 
     # Persist user
-    db.upsert_user(
+    auth_service.upsert_user(
         github_id=gh_user["id"],
         github_login=gh_user["login"],
         avatar_url=gh_user.get("avatar_url", ""),

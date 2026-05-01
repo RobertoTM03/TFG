@@ -7,6 +7,16 @@ import psycopg2.extras
 import psycopg2.pool
 from loguru import logger
 
+from app.domain.ports.connection_provider import ConnectionProviderPort
+from app.domain.ports.contributor_repository import ContributorRepositoryPort
+from app.domain.ports.health_check import HealthCheckPort
+from app.domain.ports.indexing_repository import IndexingRepositoryPort
+from app.domain.ports.installation_repository import InstallationRepositoryPort
+from app.domain.ports.repo_config_repository import RepoConfigRepositoryPort
+from app.domain.ports.rule_repository import RuleRepositoryPort
+from app.domain.ports.task_repository import TaskRepositoryPort
+from app.domain.ports.user_repository import UserRepositoryPort
+
 # Whitelisted sort columns per entity
 _TASK_SORT_COLUMNS = {"created_at", "status", "repository_full_name", "progress", "completed_at", "pr_number"}
 _RULE_SORT_COLUMNS = {"position", "rule_text"}
@@ -15,12 +25,18 @@ _POOL_MIN = 2
 _POOL_MAX = 10
 
 
-class Database:
-    """Single entry point for all SQL operations.
-
-    Uses a ThreadedConnectionPool so connections are reused across requests
-    instead of being created and destroyed on every operation.
-    """
+class Database(
+    ConnectionProviderPort,
+    HealthCheckPort,
+    UserRepositoryPort,
+    RuleRepositoryPort,
+    TaskRepositoryPort,
+    IndexingRepositoryPort,
+    InstallationRepositoryPort,
+    RepoConfigRepositoryPort,
+    ContributorRepositoryPort,
+):
+    """Single entry point for all SQL operations."""
 
     def __init__(
         self,
@@ -50,13 +66,16 @@ class Database:
         logger.info("Database connection pool closed")
 
     @contextmanager
-    def _conn(self) -> Generator:
+    def connection(self) -> Generator:
         """Yield a connection from the pool and return it when done."""
         conn = self._pool.getconn()
         try:
             yield conn
         finally:
             self._pool.putconn(conn)
+
+    # Internal alias kept for backward compatibility within this module
+    _conn = connection
 
     def check_health(self) -> bool:
         try:

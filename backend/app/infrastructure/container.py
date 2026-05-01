@@ -2,9 +2,12 @@ import threading
 
 from openai import AzureOpenAI
 
+from app.application.services.auth_service import AuthService
+from app.application.services.contributor_service import ContributorService
 from app.application.services.cross_check_service import CrossCheckService
 from app.application.services.health_service import HealthService
 from app.application.services.validation_service import ValidationService
+from app.application.services.webhook_service import WebhookService
 from app.config import Settings
 from app.domain.ports import (
     ChunkingPort,
@@ -70,6 +73,9 @@ class Container:
         self._database: Database | None = None
         self._health_service: HealthService | None = None
         self._validation_service: ValidationService | None = None
+        self._auth_service: AuthService | None = None
+        self._webhook_service: WebhookService | None = None
+        self._contributor_service: ContributorService | None = None
 
     # Embedding
 
@@ -308,7 +314,7 @@ class Container:
             with self._lock:
                 if self._health_service is None:
                     self._health_service = HealthService(
-                        database=self.database,
+                        health_check=self.database,
                         vector_store=self.vector_store,
                         embedding=self.embedding,
                         chunking=self.chunking,
@@ -330,7 +336,43 @@ class Container:
                         llm_primary=self.llm_primary,
                         llm_secondary=self.llm_secondary,
                         cross_check_service=self.cross_check_service,
-                        database=self.database,
-                        settings=self._settings,
+                        indexing_repo=self.database,
+                        similarity_threshold=self._settings.SIMILARITY_THRESHOLD,
+                        max_results=self._settings.MAX_RESULTS,
+                        max_file_content_size=self._settings.MAX_FILE_CONTENT_SIZE,
                     )
         return self._validation_service
+
+    @property
+    def auth_service(self) -> AuthService:
+        if self._auth_service is None:
+            with self._lock:
+                if self._auth_service is None:
+                    self._auth_service = AuthService(user_repo=self.database)
+        return self._auth_service
+
+    @property
+    def webhook_service(self) -> WebhookService:
+        if self._webhook_service is None:
+            with self._lock:
+                if self._webhook_service is None:
+                    self._webhook_service = WebhookService(
+                        user_repo=self.database,
+                        installation_repo=self.database,
+                        task_repo=self.database,
+                        rule_repo=self.database,
+                        repo_config_repo=self.database,
+                        github_app=self.github_app,
+                    )
+        return self._webhook_service
+
+    @property
+    def contributor_service(self) -> ContributorService:
+        if self._contributor_service is None:
+            with self._lock:
+                if self._contributor_service is None:
+                    self._contributor_service = ContributorService(
+                        contributor_repo=self.database,
+                        task_repo=self.database,
+                    )
+        return self._contributor_service

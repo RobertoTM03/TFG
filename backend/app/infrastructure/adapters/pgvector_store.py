@@ -9,8 +9,7 @@ from loguru import logger
 from pgvector.psycopg2 import register_vector
 
 from app.domain.models.chunk import CodeChunk, SearchResult
-from app.domain.ports import EmbeddingPort, VectorStorePort
-from app.infrastructure.database import Database
+from app.domain.ports import ConnectionProviderPort, EmbeddingPort, VectorStorePort
 
 _COL_MAP = {"tree_sitter_type": "node_type"}
 _FILTERABLE = frozenset({"source", "language", "repo_name", "node_type", "node_name"})
@@ -21,7 +20,7 @@ class PgVectorStoreAdapter(VectorStorePort):
 
     def __init__(
         self,
-        database: Database,
+        database: ConnectionProviderPort,
         embeddings: EmbeddingPort,
         embedding_model_key: str,
         embedding_dimensions: int,
@@ -39,7 +38,7 @@ class PgVectorStoreAdapter(VectorStorePort):
     def _ensure_schema(self) -> None:
         # Phase 1: load extensions using a plain connection (register_vector
         # requires the vector type to already exist, so it cannot be called yet).
-        with self._db._conn() as conn:
+        with self._db.connection() as conn:
             with conn.cursor() as cur:
                 cur.execute(
                     "CREATE EXTENSION IF NOT EXISTS vectorscale CASCADE"
@@ -120,7 +119,7 @@ class PgVectorStoreAdapter(VectorStorePort):
     @contextmanager
     def _vector_conn(self) -> Generator:
         """Yield a pool connection with the pgvector type registered."""
-        with self._db._conn() as conn:
+        with self._db.connection() as conn:
             register_vector(conn)
             yield conn
 

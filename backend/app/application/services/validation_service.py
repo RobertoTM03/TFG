@@ -8,7 +8,6 @@ from typing import Callable, List, Optional, Tuple
 from loguru import logger
 
 from app.application.services.cross_check_service import CrossCheckService
-from app.config import Settings
 from app.domain.models.chunk import SearchResult
 from app.domain.models.evaluation import RuleEvaluation
 from app.domain.models.validation_result import (
@@ -19,12 +18,12 @@ from app.domain.models.validation_result import (
 from app.domain.ports import (
     ChunkingPort,
     EmbeddingPort,
+    IndexingRepositoryPort,
     LLMPort,
     RepomapPort,
     RepositoryPort,
     VectorStorePort,
 )
-from app.infrastructure.database import Database
 
 # Lines of context kept around each chunk when truncating large files
 _CONTEXT_LINES = 20
@@ -46,8 +45,10 @@ class ValidationService:
         llm_primary: LLMPort,
         llm_secondary: LLMPort,
         cross_check_service: CrossCheckService,
-        database: Database,
-        settings: Settings,
+        indexing_repo: IndexingRepositoryPort,
+        similarity_threshold: float,
+        max_results: int,
+        max_file_content_size: int,
     ) -> None:
         self._repository = repository
         self._embedding = embedding
@@ -58,8 +59,10 @@ class ValidationService:
         self._llm_primary = llm_primary
         self._llm_secondary = llm_secondary
         self._cross_check_service = cross_check_service
-        self._database = database
-        self._settings = settings
+        self._indexing_repo = indexing_repo
+        self._similarity_threshold = similarity_threshold
+        self._max_results = max_results
+        self._max_file_content_size = max_file_content_size
 
     # Public entry point
 
@@ -121,7 +124,7 @@ class ValidationService:
                 )
 
             # 4. Stored hashes (reflect main branch state)
-            stored_hashes = self._database.get_file_hashes(
+            stored_hashes = self._indexing_repo.get_file_hashes(
                 repository_url, model_name, strategy_name,
             )
 
@@ -218,7 +221,7 @@ class ValidationService:
 
                     # 6b. Hash entries for deleted files
                     if deleted_files:
-                        self._database.delete_file_hash_entries(
+                        self._indexing_repo.delete_file_hash_entries(
                             repository_url, model_name, strategy_name,
                             list(deleted_files),
                         )
@@ -248,7 +251,7 @@ class ValidationService:
 
                     # 6d. Update indexed_repositories
                     total = self._vector_store.collection_count(collection_name)
-                    ir_id = self._database.save_indexed_repo(
+                    ir_id = self._indexing_repo.save_indexed_repo(
                         repo_url=repository_url,
                         collection_name=collection_name,
                         num_chunks=total,
@@ -257,7 +260,7 @@ class ValidationService:
                     )
 
                     # 6e. Update file hashes
-                    self._database.save_file_hashes(ir_id, current_hashes)
+                    self._indexing_repo.save_file_hashes(ir_id, current_hashes)
 
             # 7. Repomap
             _report(70, "Generating repository map...")
@@ -276,13 +279,13 @@ class ValidationService:
                 results = self._vector_store.similarity_search(
                     query=rule,
                     collection_name=collection_name,
-                    threshold=self._settings.SIMILARITY_THRESHOLD,
-                    max_results=max_chunks_per_rule if max_chunks_per_rule is not None else self._settings.MAX_RESULTS,
+                    threshold=self._similarity_threshold,
+                    max_results=max_chunks_per_rule if max_chunks_per_rule is not None else self._max_results,
                     pr_branch=search_pr_branch,
                 )
                 file_matches = self._results_to_file_matches(
                     results, repo_path,
-                    self._settings.MAX_FILE_CONTENT_SIZE,
+                    self._max_file_content_size,
                 )
                 validations.append(
                     RuleValidation(rule=rule, related_files=file_matches),
