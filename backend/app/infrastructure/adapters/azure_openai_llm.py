@@ -74,7 +74,6 @@ class AzureOpenAILLMAdapter(LLMPort):
             logger.error(f"Azure OpenAI evaluation failed for rule '{rule[:60]}': {e}")
             return RuleEvaluation(
                 verdict="fail",
-                confidence=0.0,
                 explanation=f"Error evaluating with LLM: {str(e)}",
                 suggestions=[],
                 llm_provider=self.name,
@@ -190,12 +189,8 @@ class AzureOpenAILLMAdapter(LLMPort):
             if verdict not in ("pass", "fail", "partial"):
                 verdict = "fail"
 
-            confidence = float(data.get("confidence", 0.0))
-            confidence = max(0.0, min(1.0, confidence))
-
             return RuleEvaluation(
                 verdict=verdict,
-                confidence=confidence,
                 explanation=data.get("explanation", ""),
                 suggestions=data.get("suggestions", []),
             )
@@ -203,7 +198,6 @@ class AzureOpenAILLMAdapter(LLMPort):
             logger.warning(f"Failed to parse Azure OpenAI response: {e}")
             return RuleEvaluation(
                 verdict="fail",
-                confidence=0.0,
                 explanation=f"Error parsing LLM response: {raw_text[:500]}",
                 suggestions=[],
             )

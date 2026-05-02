@@ -49,18 +49,19 @@ if _LANGSMITH_AVAILABLE:
         threshold: float,
         max_results: int,
         filter_metadata: Optional[Dict],
+        pr_branch: Optional[str],
         delegate: VectorStorePort,
     ) -> List[SearchResult]:
         return delegate.similarity_search(
-            query, collection_name, threshold, max_results, filter_metadata,
+            query, collection_name, threshold, max_results, filter_metadata, pr_branch,
         )
 else:
     def _traced_evaluate_rule(rule, repomap, file_contents, repository_url, delegate):  # type: ignore[misc]
         return delegate.evaluate_rule(rule, repomap, file_contents, repository_url)
 
-    def _traced_similarity_search(query, collection_name, threshold, max_results, filter_metadata, delegate):  # type: ignore[misc]
+    def _traced_similarity_search(query, collection_name, threshold, max_results, filter_metadata, pr_branch, delegate):  # type: ignore[misc]
         return delegate.similarity_search(
-            query, collection_name, threshold, max_results, filter_metadata,
+            query, collection_name, threshold, max_results, filter_metadata, pr_branch,
         )
 
 # Parent-trace context manager
@@ -131,13 +132,14 @@ class TracedVectorStoreAdapter(VectorStorePort):
         threshold: float = 0.3,
         max_results: int = 5,
         filter_metadata: Optional[Dict] = None,
+        pr_branch: Optional[str] = None,
     ) -> List[SearchResult]:
         return _traced_similarity_search(
-            query, collection_name, threshold, max_results, filter_metadata, delegate=self._delegate,
+            query, collection_name, threshold, max_results, filter_metadata, pr_branch, delegate=self._delegate,
         )
 
-    def index_documents(self, chunks: List[CodeChunk], collection_name: str) -> int:
-        return self._delegate.index_documents(chunks, collection_name)
+    def index_documents(self, chunks: List[CodeChunk], collection_name: str, branch: str = '') -> int:
+        return self._delegate.index_documents(chunks, collection_name, branch)
 
     def collection_exists(self, collection_name: str) -> bool:
         return self._delegate.collection_exists(collection_name)
@@ -145,8 +147,11 @@ class TracedVectorStoreAdapter(VectorStorePort):
     def delete_collection(self, collection_name: str) -> None:
         return self._delegate.delete_collection(collection_name)
 
-    def delete_by_sources(self, collection_name: str, source_paths: List[str]) -> int:
-        return self._delegate.delete_by_sources(collection_name, source_paths)
+    def delete_by_sources(self, collection_name: str, source_paths: List[str], branch: str = '') -> int:
+        return self._delegate.delete_by_sources(collection_name, source_paths, branch)
+
+    def delete_branch(self, collection_name: str, branch: str) -> int:
+        return self._delegate.delete_branch(collection_name, branch)
 
     def collection_count(self, collection_name: str) -> int:
         return self._delegate.collection_count(collection_name)

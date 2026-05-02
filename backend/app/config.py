@@ -66,6 +66,8 @@ class Settings(BaseSettings):
     # Cross-Check (dual-model consensus evaluation)
     LLM_PRIMARY_MODEL: str = "gemini-2.5-flash"
     LLM_SECONDARY_MODEL: str = "gemini-2.5-flash"
+    LLM_DISCRIMINATOR_MODEL: str = "azure/gpt-4o"
+    LANGSMITH_DISCRIMINATOR_PROMPT: str = "cross-check-discriminator"
 
     # GitHub App
     GITHUB_APP_ID: int = 0
@@ -79,6 +81,10 @@ class Settings(BaseSettings):
     LANGSMITH_ENDPOINT: str = "https://api.smith.langchain.com"
     LANGSMITH_PROJECT: str = "TFG"
     LANGSMITH_TRACING: bool = False
+
+    # Git Clone Retry
+    CLONE_MAX_RETRIES: int = 3
+    CLONE_RETRY_DELAY: float = 5.0
 
     # Background Worker
     WORKER_POLL_INTERVAL: int = 2
@@ -110,7 +116,7 @@ class Settings(BaseSettings):
             )
         return v
 
-    @field_validator("LLM_MODEL", "LLM_PRIMARY_MODEL", "LLM_SECONDARY_MODEL")
+    @field_validator("LLM_MODEL", "LLM_PRIMARY_MODEL", "LLM_SECONDARY_MODEL", "LLM_DISCRIMINATOR_MODEL")
     @classmethod
     def _check_llm_model(cls, v: str, info) -> str:
         if v not in _VALID_LLM_MODELS:
@@ -190,7 +196,8 @@ class Settings(BaseSettings):
         from app.domain.models.llm_registry import LLM_REGISTRY
         azure_models_in_use = [
             m for m in (
-                self.LLM_MODEL, self.LLM_PRIMARY_MODEL, self.LLM_SECONDARY_MODEL
+                self.LLM_MODEL, self.LLM_PRIMARY_MODEL, self.LLM_SECONDARY_MODEL,
+                self.LLM_DISCRIMINATOR_MODEL,
             )
             if LLM_REGISTRY.get(m) and LLM_REGISTRY[m].provider == "azure"
         ]

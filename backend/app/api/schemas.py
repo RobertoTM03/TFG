@@ -54,7 +54,6 @@ class FileMatchResponse(BaseModel):
 class RuleEvaluationResponse(BaseModel):
     """LLM evaluation of a single rule."""
     verdict: str  # "pass" | "fail" | "partial"
-    confidence: float
     explanation: str
     suggestions: List[str] = []
     llm_provider: str = ""
@@ -62,18 +61,18 @@ class RuleEvaluationResponse(BaseModel):
 
 
 class CrossCheckResponse(BaseModel):
-    """Metadata produced when a rule is evaluated by two models independently."""
+    """Audit log produced when a rule is evaluated by two models independently."""
 
     primary_verdict: str
-    primary_confidence: float
     primary_model: str
     primary_explanation: str = ""
     secondary_verdict: str
-    secondary_confidence: float
     secondary_model: str
     secondary_explanation: str = ""
-    strategy_used: str  # "consensus" | "confidence" | "conservative"
     agreement: bool
+    discriminator_used: bool
+    discriminator_model: Optional[str] = None
+    discriminator_reasoning: Optional[str] = None
 
 
 class RuleValidationResponse(BaseModel):

@@ -331,14 +331,15 @@ class ValidationService:
                     primary_eval = effective_llm_primary.evaluate_rule(**eval_kwargs)
                     secondary_eval = effective_llm_secondary.evaluate_rule(**eval_kwargs)
 
-                    cross_checked = self._cross_check_service.reconcile(primary_eval, secondary_eval)
-                    validation.evaluation = cross_checked.final
+                    final_eval, cross_checked = self._cross_check_service.reconcile(
+                        validation.rule, primary_eval, secondary_eval,
+                    )
+                    validation.evaluation = final_eval
                     validation.cross_check = cross_checked
                     logger.info(
-                        f"  -> strategy={cross_checked.strategy_used} "
-                        f"agreement={cross_checked.agreement} "
-                        f"verdict={cross_checked.final.verdict} "
-                        f"confidence={cross_checked.final.confidence:.0%}"
+                        f"  -> agreement={cross_checked.agreement} "
+                        f"discriminator_used={cross_checked.discriminator_used} "
+                        f"verdict={final_eval.verdict}"
                     )
 
                     if on_rule_evaluated:
@@ -369,10 +370,7 @@ class ValidationService:
                         repository_url=repository_url,
                     )
                     validation.evaluation = evaluation
-                    logger.info(
-                        f"  -> verdict={evaluation.verdict} "
-                        f"confidence={evaluation.confidence:.0%}"
-                    )
+                    logger.info(f"  -> verdict={evaluation.verdict}")
 
                     if on_rule_evaluated:
                         on_rule_evaluated(idx, validation)
@@ -535,7 +533,6 @@ class ValidationService:
         ev = saved.get("evaluation") or {}
         validation.evaluation = RuleEvaluation(
             verdict=ev.get("verdict", "fail"),
-            confidence=ev.get("confidence", 0.0),
             explanation=ev.get("explanation", ""),
             suggestions=ev.get("suggestions", []),
             llm_provider=ev.get("llm_provider", ""),

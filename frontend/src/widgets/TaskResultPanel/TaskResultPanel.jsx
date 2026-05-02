@@ -33,11 +33,8 @@ function ScoreCircle({ score }) {
 
 function ValidationCard({ v, index }) {
   const [expanded, setExpanded] = useState(false);
-  const verdict = v.cross_check?.primary_verdict ?? v.evaluation?.verdict;
-  const confidence =
-    v.cross_check?.primary_confidence ?? v.evaluation?.confidence;
-  const explanation =
-    v.cross_check?.primary_explanation ?? v.evaluation?.explanation;
+  const verdict = v.evaluation?.verdict;
+  const explanation = v.evaluation?.explanation;
   const suggestions = v.evaluation?.suggestions ?? [];
   const hasCrossCheck = !!v.cross_check;
 
@@ -66,12 +63,10 @@ function ValidationCard({ v, index }) {
             <Badge color={verdictColor(verdict)}>
               {VERDICT_LABELS[verdict] ?? verdict}
             </Badge>
-            {confidence != null && (
-              <span className="text-xs text-[var(--color-text-muted)]">
-                {Math.round(confidence * 100)}% confianza
-              </span>
-            )}
             {hasCrossCheck && <Badge color="primary">cross-check</Badge>}
+            {v.cross_check?.discriminator_used && (
+              <Badge color="warning">discriminador</Badge>
+            )}
           </div>
           <p className="mt-1 text-sm font-medium text-[var(--color-text)] line-clamp-2">
             {v.rule}
@@ -137,14 +132,21 @@ function ValidationCard({ v, index }) {
 
           {/* Cross-check detail */}
           {hasCrossCheck && (
-            <div className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-2)] p-4">
-              <p className="text-xs font-semibold uppercase tracking-wider text-[var(--color-text-muted)] mb-3">
+            <div className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-2)] p-4 space-y-4">
+              <p className="text-xs font-semibold uppercase tracking-wider text-[var(--color-text-muted)]">
                 Verificación cruzada
               </p>
+
+              {/* Primary / Secondary */}
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <p className="text-xs text-[var(--color-text-muted)] mb-1">
-                    Modelo primario
+                    Primario
+                    {v.cross_check.primary_model && (
+                      <span className="ml-1 font-mono">
+                        ({v.cross_check.primary_model})
+                      </span>
+                    )}
                   </p>
                   <Badge color={verdictColor(v.cross_check.primary_verdict)}>
                     {VERDICT_LABELS[v.cross_check.primary_verdict] ??
@@ -156,7 +158,12 @@ function ValidationCard({ v, index }) {
                 </div>
                 <div>
                   <p className="text-xs text-[var(--color-text-muted)] mb-1">
-                    Modelo secundario
+                    Secundario
+                    {v.cross_check.secondary_model && (
+                      <span className="ml-1 font-mono">
+                        ({v.cross_check.secondary_model})
+                      </span>
+                    )}
                   </p>
                   <Badge color={verdictColor(v.cross_check.secondary_verdict)}>
                     {VERDICT_LABELS[v.cross_check.secondary_verdict] ??
@@ -167,14 +174,9 @@ function ValidationCard({ v, index }) {
                   </p>
                 </div>
               </div>
-              <div className="mt-3 flex items-center gap-2 text-xs text-[var(--color-text-muted)]">
-                <span>
-                  Estrategia:{" "}
-                  <strong className="text-[var(--color-text)]">
-                    {v.cross_check.strategy_used}
-                  </strong>
-                </span>
-                <span>·</span>
+
+              {/* Agreement / Discriminator status */}
+              <div className="flex items-center gap-2 text-xs text-[var(--color-text-muted)]">
                 <span>
                   Acuerdo:{" "}
                   <strong
@@ -187,7 +189,40 @@ function ValidationCard({ v, index }) {
                     {v.cross_check.agreement ? "Sí" : "No"}
                   </strong>
                 </span>
+                <span>·</span>
+                <span>
+                  Discriminador:{" "}
+                  <strong
+                    className={
+                      v.cross_check.discriminator_used
+                        ? "text-amber-400"
+                        : "text-[var(--color-text)]"
+                    }
+                  >
+                    {v.cross_check.discriminator_used ? "Activado" : "No usado"}
+                  </strong>
+                </span>
+                {v.cross_check.discriminator_model && (
+                  <>
+                    <span>·</span>
+                    <span className="font-mono">
+                      {v.cross_check.discriminator_model}
+                    </span>
+                  </>
+                )}
               </div>
+
+              {/* Discriminator reasoning */}
+              {v.cross_check.discriminator_reasoning && (
+                <div>
+                  <p className="text-xs text-[var(--color-text-muted)] mb-1">
+                    Razonamiento del discriminador
+                  </p>
+                  <p className="text-xs text-[var(--color-text)] leading-relaxed">
+                    {v.cross_check.discriminator_reasoning}
+                  </p>
+                </div>
+              )}
             </div>
           )}
 

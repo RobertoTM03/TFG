@@ -10,7 +10,6 @@ You will be provided with:
 You must respond ONLY with a valid JSON (no markdown, no code blocks) using this exact structure:
 {
     "verdict": "pass" | "fail" | "partial",
-    "confidence": float between 0.0 and 1.0,
     "explanation": "<detailed explanation of why the rule passes or fails, citing specific files and functions>",
     "suggestions": ["<suggestion 1>", "<suggestion 2>"]
 }

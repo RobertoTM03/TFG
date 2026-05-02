@@ -5,6 +5,7 @@ from openai import AzureOpenAI
 from app.application.services.auth_service import AuthService
 from app.application.services.contributor_service import ContributorService
 from app.application.services.cross_check_service import CrossCheckService
+from app.infrastructure.adapters.langsmith_discriminator import LangSmithDiscriminator
 from app.application.services.health_service import HealthService
 from app.application.services.validation_service import ValidationService
 from app.application.services.webhook_service import WebhookService
@@ -69,6 +70,7 @@ class Container:
         self._llm_slot: _RpmSlot | None = None
         self._llm_cache: dict[str, LLMPort] = {}  # cache by model_name
         self._azure_openai_client: AzureOpenAI | None = None
+        self._langsmith_discriminator: LangSmithDiscriminator | None = None
         self._cross_check_service: CrossCheckService | None = None
         self._database: Database | None = None
         self._health_service: HealthService | None = None
@@ -148,7 +150,10 @@ class Container:
         if self._repository is None:
             with self._lock:
                 if self._repository is None:
-                    self._repository = GitRepositoryAdapter()
+                    self._repository = GitRepositoryAdapter(
+                        max_retries=self._settings.CLONE_MAX_RETRIES,
+                        retry_delay=self._settings.CLONE_RETRY_DELAY,
+                    )
         return self._repository
 
     # Repomap
@@ -256,6 +261,20 @@ class Container:
                     self._llm_secondary = self.get_llm(self._settings.LLM_SECONDARY_MODEL)
         return self._llm_secondary
 
+    # LangSmith Discriminator
+
+    @property
+    def langsmith_discriminator(self) -> LangSmithDiscriminator:
+        if self._langsmith_discriminator is None:
+            with self._lock:
+                if self._langsmith_discriminator is None:
+                    discriminator_llm = self.get_llm(self._settings.LLM_DISCRIMINATOR_MODEL)
+                    self._langsmith_discriminator = LangSmithDiscriminator(
+                        discriminator_llm=discriminator_llm,
+                        prompt_name=self._settings.LANGSMITH_DISCRIMINATOR_PROMPT,
+                    )
+        return self._langsmith_discriminator
+
     # Cross-Check Service
 
     @property
@@ -263,7 +282,9 @@ class Container:
         if self._cross_check_service is None:
             with self._lock:
                 if self._cross_check_service is None:
-                    self._cross_check_service = CrossCheckService()
+                    self._cross_check_service = CrossCheckService(
+                        discriminator=self.langsmith_discriminator,
+                    )
         return self._cross_check_service
 
     # GitHub App

@@ -113,7 +113,6 @@ class _WorkerThread:
                 "rule": validation.rule,
                 "evaluation": {
                     "verdict": ev.verdict if ev else "fail",
-                    "confidence": ev.confidence if ev else 0.0,
                     "explanation": ev.explanation if ev else "",
                     "suggestions": ev.suggestions if ev else [],
                     "llm_provider": ev.llm_provider if ev else "",
@@ -311,7 +310,6 @@ class _WorkerThread:
                     ],
                     "evaluation": {
                         "verdict": v.evaluation.verdict,
-                        "confidence": v.evaluation.confidence,
                         "explanation": v.evaluation.explanation,
                         "suggestions": v.evaluation.suggestions,
                         "llm_provider": v.evaluation.llm_provider,
@@ -319,15 +317,15 @@ class _WorkerThread:
                     } if v.evaluation else None,
                     "cross_check": {
                         "primary_verdict": v.cross_check.primary.verdict,
-                        "primary_confidence": v.cross_check.primary.confidence,
                         "primary_model": v.cross_check.primary.llm_provider,
                         "primary_explanation": v.cross_check.primary.explanation,
                         "secondary_verdict": v.cross_check.secondary.verdict,
-                        "secondary_confidence": v.cross_check.secondary.confidence,
                         "secondary_model": v.cross_check.secondary.llm_provider,
                         "secondary_explanation": v.cross_check.secondary.explanation,
-                        "strategy_used": v.cross_check.strategy_used,
                         "agreement": v.cross_check.agreement,
+                        "discriminator_used": v.cross_check.discriminator_used,
+                        "discriminator_model": v.cross_check.discriminator_model,
+                        "discriminator_reasoning": v.cross_check.discriminator_reasoning,
                     } if v.cross_check else None,
                 }
                 for v in result.validations

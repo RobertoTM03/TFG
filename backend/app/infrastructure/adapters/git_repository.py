@@ -1,11 +1,25 @@
 import shutil
 import tempfile
+import time
 from fnmatch import fnmatch
 from pathlib import Path
 from typing import List, Optional, Tuple
 
 from git import GitCommandError, Repo
 from loguru import logger
+
+_TRANSIENT_ERRORS = (
+    "GnuTLS",
+    "handshake failed",
+    "TLS connection",
+    "SSL_connect",
+    "Connection reset",
+    "Connection timed out",
+    "unable to access",
+    "curl",
+    "recv failure",
+    "OpenSSL",
+)
 
 from app.domain.ports import RepositoryPort
 
@@ -41,47 +55,66 @@ MAX_FILE_SIZE = 1_000_000  # 1 MB
 class GitRepositoryAdapter(RepositoryPort):
     """Git repository adapter for cloning and loading source files."""
 
+    def __init__(self, max_retries: int = 3, retry_delay: float = 5.0) -> None:
+        self._max_retries = max_retries
+        self._retry_delay = retry_delay
+
     @staticmethod
     def _safe_url(url: str) -> str:
         """Strip credentials from a URL before logging or surfacing in errors."""
         return url.split("@")[-1] if "@" in url else url
 
     def clone(self, url: str, branch: Optional[str] = None) -> Path:
-        tmp_dir = tempfile.mkdtemp(prefix="tfg_repo_")
         safe = self._safe_url(url)
         branch_info = f" (branch: {branch})" if branch else ""
-        logger.info(f"Cloning {safe}{branch_info} into {tmp_dir}...")
-        try:
-            Repo.clone_from(
-                url, tmp_dir, depth=1,
-                branch=branch if branch else None,
-                env={"GIT_TERMINAL_PROMPT": "0", "GIT_ASKPASS": "echo"},
-            )
-        except GitCommandError as e:
-            shutil.rmtree(tmp_dir, ignore_errors=True)
-            stderr = str(e.stderr).strip() if e.stderr else ""
-            if (
-                "could not read Username" in stderr
-                or "could not read Password" in stderr
-                or "Authentication failed" in stderr
-                or "authentication required" in stderr.lower()
-            ):
+
+        for attempt in range(1, self._max_retries + 1):
+            tmp_dir = tempfile.mkdtemp(prefix="tfg_repo_")
+            logger.info(f"Cloning {safe}{branch_info} into {tmp_dir} (attempt {attempt}/{self._max_retries})...")
+            try:
+                Repo.clone_from(
+                    url, tmp_dir, depth=1,
+                    branch=branch if branch else None,
+                    env={"GIT_TERMINAL_PROMPT": "0", "GIT_ASKPASS": "echo"},
+                )
+                logger.info(f"Clone complete: {tmp_dir}")
+                return Path(tmp_dir)
+            except GitCommandError as e:
+                shutil.rmtree(tmp_dir, ignore_errors=True)
+                stderr = str(e.stderr).strip() if e.stderr else ""
+
+                if (
+                    "could not read Username" in stderr
+                    or "could not read Password" in stderr
+                    or "Authentication failed" in stderr
+                    or "authentication required" in stderr.lower()
+                ):
+                    raise RuntimeError(
+                        f"Authentication failed cloning {safe}. "
+                        "The repository may be private and the stored token may lack 'repo' scope."
+                    ) from e
+
+                if (
+                    "not found" in stderr.lower()
+                    or "does not exist" in stderr.lower()
+                ):
+                    raise RuntimeError(
+                        f"Repository not found: {safe}. Check the URL."
+                    ) from e
+
+                is_transient = any(kw in stderr for kw in _TRANSIENT_ERRORS)
+                if is_transient and attempt < self._max_retries:
+                    logger.warning(
+                        f"Transient network error cloning {safe} "
+                        f"(attempt {attempt}/{self._max_retries}): {stderr[:200]}. "
+                        f"Retrying in {self._retry_delay:.0f}s..."
+                    )
+                    time.sleep(self._retry_delay)
+                    continue
+
                 raise RuntimeError(
-                    f"Authentication failed cloning {safe}. "
-                    "The repository may be private and the stored token may lack 'repo' scope."
+                    f"Error cloning {safe}: {stderr or str(e)}"
                 ) from e
-            if (
-                "not found" in stderr.lower()
-                or "does not exist" in stderr.lower()
-            ):
-                raise RuntimeError(
-                    f"Repository not found: {safe}. Check the URL."
-                ) from e
-            raise RuntimeError(
-                f"Error cloning {safe}: {stderr or str(e)}"
-            ) from e
-        logger.info(f"Clone complete: {tmp_dir}")
-        return Path(tmp_dir)
 
     def load_files(self, repo_path: Path) -> List[Tuple[str, str]]:
         logger.info(f"Loading code files from {repo_path}...")
