@@ -1,4 +1,5 @@
 import asyncio
+import json
 import threading
 import time
 from typing import List, Optional
@@ -190,32 +191,47 @@ class _WorkerThread:
                     f"Retry after {self._settings.WORKER_RETRY_DELAY}s."
                 )
             else:
-                error_msg = f"{error_kind} no disponible tras {max_retries} reintentos: {exc}"
-                self._db.fail_task(task_id, error_msg)
+                code = "LLM_UNAVAILABLE" if isinstance(exc, LLMUnavailableError) else "EMBEDDING_UNAVAILABLE"
+                error_payload = json.dumps({
+                    "code": code,
+                    "message": (
+                        f"El servicio de IA no respondió tras {max_retries} intentos. "
+                        "Inténtalo de nuevo más tarde."
+                        if isinstance(exc, LLMUnavailableError) else
+                        f"El servicio de búsqueda semántica no respondió tras {max_retries} intentos. "
+                        "Inténtalo de nuevo más tarde."
+                    ),
+                    "technical": str(exc),
+                })
+                self._db.fail_task(task_id, error_payload)
                 self._notify(user_id, task_id, {
                     "type": "task_failed",
                     "task_id": task_id,
-                    "error": error_msg,
+                    "error": error_payload,
                 })
                 logger.error(
                     f"[{self._name}] Task {task_id} permanently failed after "
                     f"{max_retries} requeue attempts: {exc}"
                 )
                 if task.get("pr_number"):
-                    self._post_github_review_error(task, error_msg)
+                    self._post_github_review_error(task, error_payload)
 
         except Exception as exc:
-            error_msg = str(exc)
-            self._db.fail_task(task_id, error_msg)
+            error_payload = json.dumps({
+                "code": "UNEXPECTED_ERROR",
+                "message": "Ocurrió un error inesperado durante la evaluación. Contacta con soporte si persiste.",
+                "technical": str(exc),
+            })
+            self._db.fail_task(task_id, error_payload)
             self._notify(user_id, task_id, {
                 "type": "task_failed",
                 "task_id": task_id,
-                "error": error_msg,
+                "error": error_payload,
             })
-            logger.error(f"[{self._name}] Task {task_id} failed: {error_msg}")
+            logger.error(f"[{self._name}] Task {task_id} failed: {exc}")
 
             if task.get("pr_number"):
-                self._post_github_review_error(task, error_msg)
+                self._post_github_review_error(task, error_payload)
 
     # GitHub PR review posting
 

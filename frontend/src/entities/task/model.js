@@ -1,3 +1,42 @@
+export const TASK_ERROR_CODE = {
+  LLM_UNAVAILABLE: "LLM_UNAVAILABLE",
+  EMBEDDING_UNAVAILABLE: "EMBEDDING_UNAVAILABLE",
+  UNEXPECTED_ERROR: "UNEXPECTED_ERROR",
+};
+
+const ERROR_TITLES = {
+  [TASK_ERROR_CODE.LLM_UNAVAILABLE]: "Servicio de IA no disponible",
+  [TASK_ERROR_CODE.EMBEDDING_UNAVAILABLE]: "Servicio de búsqueda no disponible",
+  [TASK_ERROR_CODE.UNEXPECTED_ERROR]: "Error inesperado",
+};
+
+/**
+ * Parses task.error — may be a JSON string (new format) or plain string (legacy).
+ * Returns { code, message, technical, title }.
+ */
+export function parseTaskError(raw) {
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw);
+    if (parsed.code && parsed.message) {
+      return {
+        code: parsed.code,
+        message: parsed.message,
+        technical: parsed.technical ?? null,
+        title: ERROR_TITLES[parsed.code] ?? "Error en la evaluación",
+      };
+    }
+  } catch {
+    // legacy plain string
+  }
+  return {
+    code: null,
+    message: raw,
+    technical: null,
+    title: "Error en la evaluación",
+  };
+}
+
 export const TASK_STATUS = {
   PENDING: "pending",
   RUNNING: "running",

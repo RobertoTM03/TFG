@@ -14,7 +14,7 @@ const GITHUB_ICON = (
 export function ReposPage() {
   const [repos, setRepos] = useState(null);
   const [appInfo, setAppInfo] = useState(null);
-  const [loading, setLoading] = useState(true);
+const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
   const loadData = (showLoader = false) => {
@@ -73,7 +73,7 @@ export function ReposPage() {
         </div>
       )}
 
-      {!repos?.length ? (
+{!repos?.length ? (
         <EmptyState
           title="No hay repositorios conectados"
           description="Instala la GitHub App en tus repositorios para empezar a usarlos."

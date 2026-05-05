@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { useParams, Link } from "react-router-dom";
 import { fetchTask } from "@/entities/task/api";
-import { isTerminal, TASK_STATUS } from "@/entities/task/model";
+import { isTerminal, TASK_STATUS, parseTaskError } from "@/entities/task/model";
 import { useTaskWebSocket } from "@/features/auth/useTaskWebSocket";
 import { TaskResultPanel } from "@/widgets/TaskResultPanel/TaskResultPanel";
 import { PageLoader } from "@/shared/ui/Spinner";
@@ -200,11 +200,25 @@ export function TaskDetailPage() {
         )}
 
         {/* Error */}
-        {task.status === TASK_STATUS.FAILED && task.error && (
-          <div className="mt-4 rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-400">
-            {task.error}
-          </div>
-        )}
+        {task.status === TASK_STATUS.FAILED && task.error && (() => {
+          const err = parseTaskError(task.error);
+          return (
+            <div className="mt-4 rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm">
+              <p className="font-semibold text-red-400">{err.title}</p>
+              <p className="mt-1 text-red-300">{err.message}</p>
+              {err.technical && (
+                <details className="mt-2">
+                  <summary className="cursor-pointer text-xs text-red-500/70 hover:text-red-400">
+                    Detalles técnicos
+                  </summary>
+                  <pre className="mt-1 overflow-x-auto whitespace-pre-wrap break-all text-xs text-red-500/60">
+                    {err.technical}
+                  </pre>
+                </details>
+              )}
+            </div>
+          );
+        })()}
       </div>
 
       {/* Rules used */}
