@@ -1,26 +1,18 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { triggerValidation } from "@/entities/task/api";
-import { fetchRepoConfig } from "@/entities/repoConfig/api";
 import { Button } from "@/shared/ui/Button";
 
 export function TriggerValidation({ owner, repo }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  const [crossCheck, setCrossCheck] = useState(true); // default until config loads
   const navigate = useNavigate();
-
-  useEffect(() => {
-    fetchRepoConfig(owner, repo)
-      .then((cfg) => setCrossCheck(cfg.enable_cross_check))
-      .catch(() => {});
-  }, [owner, repo]);
 
   async function handleTrigger() {
     setLoading(true);
     setError(null);
     try {
-      const task = await triggerValidation(owner, repo, crossCheck);
+      const task = await triggerValidation(owner, repo);
       navigate(`/tasks/${task.task_id}`);
     } catch (err) {
       setError(err.message);

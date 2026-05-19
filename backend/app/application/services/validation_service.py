@@ -541,7 +541,28 @@ class ValidationService:
 
     @staticmethod
     def _restore_cross_check(validation: "RuleValidation", saved: dict) -> None:
+        from app.domain.models.cross_check import CrossCheckedEvaluation
         ValidationService._restore_evaluation(validation, saved)
+        cc = saved.get("cross_check")
+        if cc:
+            primary = RuleEvaluation(
+                verdict=cc.get("primary_verdict", "fail"),
+                explanation=cc.get("primary_explanation", ""),
+                llm_provider=cc.get("primary_model", ""),
+            )
+            secondary = RuleEvaluation(
+                verdict=cc.get("secondary_verdict", "fail"),
+                explanation=cc.get("secondary_explanation", ""),
+                llm_provider=cc.get("secondary_model", ""),
+            )
+            validation.cross_check = CrossCheckedEvaluation(
+                primary=primary,
+                secondary=secondary,
+                agreement=cc.get("agreement", False),
+                discriminator_used=cc.get("discriminator_used", False),
+                discriminator_model=cc.get("discriminator_model"),
+                discriminator_reasoning=cc.get("discriminator_reasoning"),
+            )
 
     @staticmethod
     def _compute_file_hashes(files: List[Tuple[str, str]]) -> dict:

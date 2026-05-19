@@ -110,6 +110,7 @@ class _WorkerThread:
 
         def on_rule_evaluated(idx: int, validation) -> None:
             ev = validation.evaluation
+            cc = validation.cross_check
             entry = {
                 "rule": validation.rule,
                 "evaluation": {
@@ -119,6 +120,18 @@ class _WorkerThread:
                     "llm_provider": ev.llm_provider if ev else "",
                     "tokens_used": ev.tokens_used if ev else 0,
                 },
+                "cross_check": {
+                    "primary_verdict": cc.primary.verdict,
+                    "primary_model": cc.primary.llm_provider,
+                    "primary_explanation": cc.primary.explanation,
+                    "secondary_verdict": cc.secondary.verdict,
+                    "secondary_model": cc.secondary.llm_provider,
+                    "secondary_explanation": cc.secondary.explanation,
+                    "agreement": cc.agreement,
+                    "discriminator_used": cc.discriminator_used,
+                    "discriminator_model": cc.discriminator_model,
+                    "discriminator_reasoning": cc.discriminator_reasoning,
+                } if cc else None,
             }
             partial_snapshot.append(entry)
             self._db.save_task_partial_result(task_id, partial_snapshot)

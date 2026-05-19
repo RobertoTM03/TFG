@@ -34,7 +34,6 @@ async def validate_repo(
     owner: str,
     repo: str,
     request: Request,
-    cross_check: bool = True,
     user: dict = Depends(get_current_user),
 ):
     """Read the user's rules for this repository and launch a
@@ -52,6 +51,10 @@ async def validate_repo(
     rule_texts = [r["rule_text"] for r in rules if r.get("enabled", True)]
     repo_url = f"https://github.com/{full_name}.git"
 
+    # Read enable_cross_check from the persisted repo config (authoritative source)
+    repo_config = db.get_repo_config(str(user["id"]), full_name)
+    enable_cross_check = repo_config["enable_cross_check"] if repo_config else True
+
     # Resolve installation_id: DB cache first, then GitHub API as fallback
     installation_id: int | None = None
     inst_row = db.get_installation_for_owner(str(user["id"]), owner)
@@ -68,7 +71,7 @@ async def validate_repo(
         repository_full_name=full_name,
         rules=rule_texts,
         user_id=str(user["id"]),
-        enable_cross_check=cross_check,
+        enable_cross_check=enable_cross_check,
         github_installation_id=installation_id,
     )
     return TaskCreatedResponse(task_id=str(task["id"]))

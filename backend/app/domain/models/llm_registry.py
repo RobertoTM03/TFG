@@ -32,6 +32,29 @@ LLM_REGISTRY: dict[str, LLMModelSpec] = {
         model_id="gpt-4o",
         display_name="Azure GPT-4o",
     ),
+    "azure/gpt-4.1": LLMModelSpec(
+        provider="azure",
+        model_id="gpt-4.1",
+        display_name="Azure GPT-4.1",
+    ),
+    "azure/gpt-5.1-chat": LLMModelSpec(
+        provider="azure",
+        model_id="gpt-5.1-chat",
+        display_name="Azure GPT-5.1",
+        supports_temperature=False,
+    ),
+    "azure/gpt-5.3-chat": LLMModelSpec(
+        provider="azure",
+        model_id="gpt-5.3-chat",
+        display_name="Azure GPT-5.3",
+        supports_temperature=False,
+    ),
+    "azure/gpt-5.4-nano": LLMModelSpec(
+        provider="azure",
+        model_id="gpt-5.4-nano",
+        display_name="Azure GPT-5.4 Nano",
+        supports_temperature=False,
+    ),
 }
 
 VALID_LLM_MODEL_IDS: frozenset[str] = frozenset(LLM_REGISTRY.keys())

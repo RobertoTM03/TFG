@@ -32,6 +32,10 @@ export function RuleList({
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
 
+  // Delete all modal
+  const [deleteAllOpen, setDeleteAllOpen] = useState(false);
+  const [deleteAllLoading, setDeleteAllLoading] = useState(false);
+
   // Toggle loading per rule
   const [toggling, setToggling] = useState(new Set());
 
@@ -101,6 +105,17 @@ export function RuleList({
       setDeleteTarget(null);
     } finally {
       setDeleteLoading(false);
+    }
+  }
+
+  async function handleDeleteAll() {
+    setDeleteAllLoading(true);
+    try {
+      await Promise.all(rules.map((r) => deleteRule(owner, repo, r.id)));
+      rules.forEach((r) => onDeleted?.(r.id));
+      setDeleteAllOpen(false);
+    } finally {
+      setDeleteAllLoading(false);
     }
   }
 
@@ -201,15 +216,26 @@ export function RuleList({
         <input ref={fileRef} type="file" accept=".json,application/json" className="hidden" onChange={handleFileChange} />
 
         {rules.length > 0 && (
-          <button
-            onClick={handleExport}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-text-muted)] hover:text-[var(--color-text)] hover:border-[var(--color-text-muted)] transition-colors"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
-              <path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM6.293 6.707a1 1 0 010-1.414l3-3a1 1 0 011.414 0l3 3a1 1 0 01-1.414 1.414L11 5.414V13a1 1 0 11-2 0V5.414L7.707 6.707a1 1 0 01-1.414 0z" clipRule="evenodd" />
-            </svg>
-            Exportar JSON
-          </button>
+          <>
+            <button
+              onClick={handleExport}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-text-muted)] hover:text-[var(--color-text)] hover:border-[var(--color-text-muted)] transition-colors"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM6.293 6.707a1 1 0 010-1.414l3-3a1 1 0 011.414 0l3 3a1 1 0 01-1.414 1.414L11 5.414V13a1 1 0 11-2 0V5.414L7.707 6.707a1 1 0 01-1.414 0z" clipRule="evenodd" />
+              </svg>
+              Exportar JSON
+            </button>
+            <button
+              onClick={() => setDeleteAllOpen(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border border-red-800/50 bg-[var(--color-surface)] text-red-400 hover:text-red-300 hover:border-red-600 transition-colors"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
+              </svg>
+              Eliminar todas
+            </button>
+          </>
         )}
 
         <button
@@ -355,6 +381,23 @@ export function RuleList({
             hint={`${MAX_CHARS - editText.length} caracteres restantes`}
           />
         </form>
+      </Modal>
+
+      {/* Delete all confirm modal */}
+      <Modal
+        open={deleteAllOpen}
+        onClose={() => setDeleteAllOpen(false)}
+        title="Eliminar todas las reglas"
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => setDeleteAllOpen(false)}>Cancelar</Button>
+            <Button variant="danger" loading={deleteAllLoading} onClick={handleDeleteAll}>Eliminar todas</Button>
+          </>
+        }
+      >
+        <p className="text-sm text-[var(--color-text-muted)]">
+          ¿Estás seguro? Se eliminarán <strong className="text-[var(--color-text)]">{rules.length} regla{rules.length !== 1 ? "s" : ""}</strong>. Esta acción no se puede deshacer.
+        </p>
       </Modal>
 
       {/* Delete confirm modal */}

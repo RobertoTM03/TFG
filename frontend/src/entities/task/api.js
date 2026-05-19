@@ -17,9 +17,6 @@ export function fetchTask(taskId) {
   return apiClient.get(`/api/tasks/${taskId}`);
 }
 
-export function triggerValidation(owner, repo, crossCheck = true) {
-  return apiClient.post(
-    `/api/repos/${owner}/${repo}/validate?cross_check=${crossCheck}`,
-    {},
-  );
+export function triggerValidation(owner, repo) {
+  return apiClient.post(`/api/repos/${owner}/${repo}/validate`, {});
 }
