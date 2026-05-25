@@ -38,10 +38,13 @@ async def validate_repo(
 ):
     """Read the user's rules for this repository and launch a
     background validation task. Returns immediately with a task id."""
-    db = request.app.state.database
+    rule_repo = request.app.state.rule_repo
+    repo_config_repo = request.app.state.repo_config_repo
+    installation_repo = request.app.state.installation_repo
+    task_repo = request.app.state.task_repo
     full_name = f"{owner}/{repo}"
 
-    rules, _ = db.get_rules(str(user["id"]), full_name, page=1, page_size=1000)
+    rules, _ = rule_repo.get_rules(str(user["id"]), full_name, page=1, page_size=1000)
     if not rules:
         raise HTTPException(
             status_code=400,
@@ -51,22 +54,20 @@ async def validate_repo(
     rule_texts = [r["rule_text"] for r in rules if r.get("enabled", True)]
     repo_url = f"https://github.com/{full_name}.git"
 
-    # Read enable_cross_check from the persisted repo config (authoritative source)
-    repo_config = db.get_repo_config(str(user["id"]), full_name)
+    repo_config = repo_config_repo.get_repo_config(str(user["id"]), full_name)
     enable_cross_check = repo_config["enable_cross_check"] if repo_config else True
 
-    # Resolve installation_id: DB cache first, then GitHub API as fallback
     installation_id: int | None = None
-    inst_row = db.get_installation_for_owner(str(user["id"]), owner)
+    inst_row = installation_repo.get_installation_for_owner(str(user["id"]), owner)
     if inst_row:
         installation_id = inst_row["installation_id"]
     else:
         github_app = request.app.state.container.github_app
         installation_id = github_app.get_installation_id_for_repo(owner, repo)
         if installation_id:
-            db.upsert_installation(installation_id, str(user["id"]), owner)
+            installation_repo.upsert_installation(installation_id, str(user["id"]), owner)
 
-    task = db.create_task(
+    task = task_repo.create_task(
         repository_url=repo_url,
         repository_full_name=full_name,
         rules=rule_texts,
@@ -105,7 +106,7 @@ async def list_tasks(
         None, description="Filter by task status (pending, running, completed, failed)"
     ),
 ):
-    db = request.app.state.database
+    db = request.app.state.task_repo
     user_id = str(user["id"])
     total = db.count_user_tasks(
         user_id,
@@ -157,7 +158,7 @@ async def get_task(
     request: Request,
     user: dict = Depends(get_current_user),
 ):
-    db = request.app.state.database
+    db = request.app.state.task_repo
     task = db.get_task(task_id)
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
@@ -216,8 +217,7 @@ async def ws_tasks(websocket: WebSocket):
         await websocket.close(code=4001, reason="Missing token")
         return
 
-    db = websocket.app.state.database
-    user = db.get_user_by_token(token)
+    user = websocket.app.state.user_repo.get_user_by_token(token)
     if not user:
         await websocket.close(code=4001, reason="Invalid token")
         return
@@ -241,8 +241,9 @@ async def ws_tasks(websocket: WebSocket):
                 if not task_id:
                     continue
                 # Verify the user is allowed to view this task
-                task = db.get_task(task_id)
-                if not task or not db.can_view_task(task_id, user_id):
+                task_repo = websocket.app.state.task_repo
+                task = task_repo.get_task(task_id)
+                if not task or not task_repo.can_view_task(task_id, user_id):
                     await websocket.send_json({
                         "type": "error",
                         "task_id": task_id,

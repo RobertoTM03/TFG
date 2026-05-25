@@ -28,7 +28,7 @@ async def list_rules(
     sort_by: str = Query("position", description="Sort column: position | rule_text"),
     sort_order: str = Query("asc", pattern="^(asc|desc)$", description="asc or desc"),
 ):
-    db = request.app.state.database
+    db = request.app.state.rule_repo
     full_name = f"{owner}/{repo}"
     rows, total = db.get_rules(
         str(user["id"]), full_name,
@@ -67,7 +67,7 @@ async def create_rule(
     request: Request,
     user: dict = Depends(get_current_user),
 ):
-    db = request.app.state.database
+    db = request.app.state.rule_repo
     full_name = f"{owner}/{repo}"
 
     settings = request.app.state.settings
@@ -101,7 +101,7 @@ async def update_rule(
     request: Request,
     user: dict = Depends(get_current_user),
 ):
-    db = request.app.state.database
+    db = request.app.state.rule_repo
     rule = db.update_rule(
         rule_id,
         str(user["id"]),
@@ -131,7 +131,7 @@ async def delete_rule(
     request: Request,
     user: dict = Depends(get_current_user),
 ):
-    db = request.app.state.database
+    db = request.app.state.rule_repo
     deleted = db.delete_rule(rule_id, str(user["id"]))
     if not deleted:
         raise HTTPException(status_code=404, detail="Rule not found")

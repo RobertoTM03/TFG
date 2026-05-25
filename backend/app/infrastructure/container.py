@@ -34,6 +34,15 @@ from app.infrastructure.adapters.github_app_adapter import GitHubAppAdapter
 from app.infrastructure.rate_limiter import RateLimitedEmbeddings, RateLimitedLLM, _RpmSlot
 from app.infrastructure.tracing import TracedLLMAdapter, TracedVectorStoreAdapter
 from app.infrastructure.database import Database
+from app.infrastructure.repositories import (
+    UserRepository,
+    RuleRepository,
+    TaskRepository,
+    IndexingRepository,
+    InstallationRepository,
+    RepoConfigRepository,
+    ContributorRepository,
+)
 
 EMBEDDING_REGISTRY = {
     "gemini": GeminiEmbeddingAdapter,
@@ -73,6 +82,13 @@ class Container:
         self._langsmith_discriminator: LangSmithDiscriminator | None = None
         self._cross_check_service: CrossCheckService | None = None
         self._database: Database | None = None
+        self._user_repo: UserRepository | None = None
+        self._rule_repo: RuleRepository | None = None
+        self._task_repo: TaskRepository | None = None
+        self._indexing_repo: IndexingRepository | None = None
+        self._installation_repo: InstallationRepository | None = None
+        self._repo_config_repo: RepoConfigRepository | None = None
+        self._contributor_repo: ContributorRepository | None = None
         self._health_service: HealthService | None = None
         self._validation_service: ValidationService | None = None
         self._auth_service: AuthService | None = None
@@ -327,6 +343,64 @@ class Container:
                     )
         return self._database
 
+    # Repositories
+
+    @property
+    def user_repo(self) -> UserRepository:
+        if self._user_repo is None:
+            with self._lock:
+                if self._user_repo is None:
+                    self._user_repo = UserRepository(self.database)
+        return self._user_repo
+
+    @property
+    def rule_repo(self) -> RuleRepository:
+        if self._rule_repo is None:
+            with self._lock:
+                if self._rule_repo is None:
+                    self._rule_repo = RuleRepository(self.database)
+        return self._rule_repo
+
+    @property
+    def task_repo(self) -> TaskRepository:
+        if self._task_repo is None:
+            with self._lock:
+                if self._task_repo is None:
+                    self._task_repo = TaskRepository(self.database)
+        return self._task_repo
+
+    @property
+    def indexing_repo(self) -> IndexingRepository:
+        if self._indexing_repo is None:
+            with self._lock:
+                if self._indexing_repo is None:
+                    self._indexing_repo = IndexingRepository(self.database)
+        return self._indexing_repo
+
+    @property
+    def installation_repo(self) -> InstallationRepository:
+        if self._installation_repo is None:
+            with self._lock:
+                if self._installation_repo is None:
+                    self._installation_repo = InstallationRepository(self.database)
+        return self._installation_repo
+
+    @property
+    def repo_config_repo(self) -> RepoConfigRepository:
+        if self._repo_config_repo is None:
+            with self._lock:
+                if self._repo_config_repo is None:
+                    self._repo_config_repo = RepoConfigRepository(self.database)
+        return self._repo_config_repo
+
+    @property
+    def contributor_repo(self) -> ContributorRepository:
+        if self._contributor_repo is None:
+            with self._lock:
+                if self._contributor_repo is None:
+                    self._contributor_repo = ContributorRepository(self.database)
+        return self._contributor_repo
+
     # Application Services
 
     @property
@@ -335,7 +409,7 @@ class Container:
             with self._lock:
                 if self._health_service is None:
                     self._health_service = HealthService(
-                        health_check=self.database,
+                        health_check=self.database,  # Database still implements HealthCheckPort
                         vector_store=self.vector_store,
                         embedding=self.embedding,
                         chunking=self.chunking,
@@ -357,7 +431,7 @@ class Container:
                         llm_primary=self.llm_primary,
                         llm_secondary=self.llm_secondary,
                         cross_check_service=self.cross_check_service,
-                        indexing_repo=self.database,
+                        indexing_repo=self.indexing_repo,
                         similarity_threshold=self._settings.SIMILARITY_THRESHOLD,
                         max_results=self._settings.MAX_RESULTS,
                         max_file_content_size=self._settings.MAX_FILE_CONTENT_SIZE,
@@ -369,7 +443,7 @@ class Container:
         if self._auth_service is None:
             with self._lock:
                 if self._auth_service is None:
-                    self._auth_service = AuthService(user_repo=self.database)
+                    self._auth_service = AuthService(user_repo=self.user_repo)
         return self._auth_service
 
     @property
@@ -378,11 +452,11 @@ class Container:
             with self._lock:
                 if self._webhook_service is None:
                     self._webhook_service = WebhookService(
-                        user_repo=self.database,
-                        installation_repo=self.database,
-                        task_repo=self.database,
-                        rule_repo=self.database,
-                        repo_config_repo=self.database,
+                        user_repo=self.user_repo,
+                        installation_repo=self.installation_repo,
+                        task_repo=self.task_repo,
+                        rule_repo=self.rule_repo,
+                        repo_config_repo=self.repo_config_repo,
                         github_app=self.github_app,
                     )
         return self._webhook_service
@@ -393,7 +467,7 @@ class Container:
             with self._lock:
                 if self._contributor_service is None:
                     self._contributor_service = ContributorService(
-                        contributor_repo=self.database,
-                        task_repo=self.database,
+                        contributor_repo=self.contributor_repo,
+                        task_repo=self.task_repo,
                     )
         return self._contributor_service

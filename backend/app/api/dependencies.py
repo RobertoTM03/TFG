@@ -9,7 +9,7 @@ async def get_current_user(
     credentials: HTTPAuthorizationCredentials = Depends(security),
 ) -> dict:
     """Validate the Bearer token and return the user row."""
-    user = request.app.state.database.get_user_by_token(credentials.credentials)
+    user = request.app.state.user_repo.get_user_by_token(credentials.credentials)
     if not user:
         raise HTTPException(
             status_code=401, detail="Invalid or expired token",

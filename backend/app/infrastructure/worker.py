@@ -8,8 +8,10 @@ from loguru import logger
 
 from app.config import Settings
 from app.domain.exceptions import EmbeddingUnavailableError, LLMUnavailableError
+from app.domain.ports.task_repository import TaskRepositoryPort
+from app.domain.ports.installation_repository import InstallationRepositoryPort
+from app.domain.ports.repo_config_repository import RepoConfigRepositoryPort
 from app.infrastructure.container import Container
-from app.infrastructure.database import Database
 from app.infrastructure.tracing import validation_trace
 from app.infrastructure.websocket_manager import WebSocketManager
 
@@ -21,14 +23,18 @@ class _WorkerThread:
         self,
         name: str,
         container: Container,
-        database: Database,
+        task_repo: TaskRepositoryPort,
+        installation_repo: InstallationRepositoryPort,
+        repo_config_repo: RepoConfigRepositoryPort,
         settings: Settings,
         ws_manager: Optional[WebSocketManager],
         loop: asyncio.AbstractEventLoop,
     ) -> None:
         self._name = name
         self._container = container
-        self._db = database
+        self._db = task_repo
+        self._installation_repo = installation_repo
+        self._repo_config_repo = repo_config_repo
         self._settings = settings
         self._ws_manager = ws_manager
         self._loop = loop
@@ -80,7 +86,7 @@ class _WorkerThread:
                         if fresh_id and fresh_id != installation_id:
                             logger.info(f"[{self._name}] Fresh installation ID: {fresh_id} (was {installation_id})")
                             if task.get("user_id"):
-                                self._db.upsert_installation(fresh_id, str(task["user_id"]), owner)
+                                self._installation_repo.upsert_installation(fresh_id, str(task["user_id"]), owner)
                             inst_token = self._container.github_app.get_installation_token(fresh_id)
                             clone_url = repo_url.replace("https://", f"https://x-access-token:{inst_token}@", 1)
                     except Exception as exc2:
@@ -138,7 +144,7 @@ class _WorkerThread:
 
         try:
             enable_cross_check = bool(task.get("enable_cross_check", False))
-            repo_config = self._db.get_repo_config(
+            repo_config = self._repo_config_repo.get_repo_config(
                 str(task["user_id"]), task["repository_full_name"]
             ) if task.get("user_id") else None
             max_chunks_per_rule = repo_config["max_chunks_per_rule"] if repo_config else None
@@ -261,7 +267,7 @@ class _WorkerThread:
 
             score = github_app.calculate_score(result_json)
 
-            repo_config = self._db.get_repo_config(
+            repo_config = self._repo_config_repo.get_repo_config(
                 str(task["user_id"]), task["repository_full_name"]
             ) if task.get("user_id") else None
             threshold = repo_config["approval_threshold"] if repo_config else self._settings.APPROVAL_THRESHOLD
@@ -371,12 +377,16 @@ class TaskWorker:
     def __init__(
         self,
         container: Container,
-        database: Database,
+        task_repo: TaskRepositoryPort,
+        installation_repo: InstallationRepositoryPort,
+        repo_config_repo: RepoConfigRepositoryPort,
         settings: Settings,
         ws_manager: Optional[WebSocketManager] = None,
     ) -> None:
         self._container = container
-        self._db = database
+        self._task_repo = task_repo
+        self._installation_repo = installation_repo
+        self._repo_config_repo = repo_config_repo
         self._settings = settings
         self._ws_manager = ws_manager
         self._workers: List[_WorkerThread] = []
@@ -388,7 +398,9 @@ class TaskWorker:
             w = _WorkerThread(
                 name=name,
                 container=self._container,
-                database=self._db,
+                task_repo=self._task_repo,
+                installation_repo=self._installation_repo,
+                repo_config_repo=self._repo_config_repo,
                 settings=self._settings,
                 ws_manager=self._ws_manager,
                 loop=loop,

@@ -35,11 +35,23 @@ async def lifespan(application: FastAPI):
 
     container = Container(settings)
     ws_manager = WebSocketManager()
-    worker = TaskWorker(container, container.database, settings, ws_manager)
+    worker = TaskWorker(
+        container,
+        container.task_repo,
+        container.installation_repo,
+        container.repo_config_repo,
+        settings,
+        ws_manager,
+    )
 
     application.state.settings = settings
     application.state.container = container
     application.state.database = container.database
+    application.state.user_repo = container.user_repo
+    application.state.rule_repo = container.rule_repo
+    application.state.task_repo = container.task_repo
+    application.state.installation_repo = container.installation_repo
+    application.state.repo_config_repo = container.repo_config_repo
     application.state.ws_manager = ws_manager
     application.state.worker = worker
 

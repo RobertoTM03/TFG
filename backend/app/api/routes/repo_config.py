@@ -57,7 +57,7 @@ async def get_repo_config(
     user: dict = Depends(get_current_user),
 ):
     full_name = f"{owner}/{repo}"
-    db = request.app.state.database
+    db = request.app.state.repo_config_repo
     row = db.get_repo_config(str(user["id"]), full_name)
     if row is None:
         return RepoConfigResponse(**_DEFAULTS)
@@ -78,7 +78,7 @@ async def put_repo_config(
 ):
     _validate_llm_fields(body)
     full_name = f"{owner}/{repo}"
-    db = request.app.state.database
+    db = request.app.state.repo_config_repo
     row = db.upsert_repo_config(
         user_id=str(user["id"]),
         repo_full_name=full_name,
