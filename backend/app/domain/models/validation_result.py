@@ -1,5 +1,4 @@
 from dataclasses import dataclass, field
-from datetime import datetime
 from typing import List, Optional
 
 from app.domain.models.cross_check import CrossCheckedEvaluation
@@ -39,7 +38,4 @@ class ValidationResult:
     embedding_model: str = ""
     chunking_strategy: str = ""
     llm_model: str = ""
-    similarity_threshold: float = 0.0
-    total_chunks_indexed: int = 0
     processing_time_seconds: float = 0.0
-    created_at: Optional[datetime] = None

@@ -87,6 +87,7 @@ class TaskResultResponse(BaseModel):
     embedding_model: str
     chunking_strategy: str
     llm_model: str = ""
+    processing_time_seconds: float = 0.0
 
 
 class TaskSummaryResponse(BaseModel):

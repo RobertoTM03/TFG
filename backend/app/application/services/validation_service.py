@@ -1,5 +1,6 @@
 import hashlib
 import os
+import time
 import uuid
 from collections import defaultdict
 from pathlib import Path
@@ -88,6 +89,7 @@ class ValidationService:
             if on_progress:
                 on_progress(pct, msg)
 
+        _start = time.monotonic()
         repo_path = None
         use_pr_delta = False
         collection_name = ""
@@ -389,6 +391,7 @@ class ValidationService:
                 embedding_model=model_name,
                 chunking_strategy=strategy_name,
                 llm_model=result_llm_model,
+                processing_time_seconds=round(time.monotonic() - _start, 2),
             )
 
             _report(100, "Done")

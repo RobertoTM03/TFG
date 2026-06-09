@@ -368,6 +368,7 @@ class _WorkerThread:
             "embedding_model": result.embedding_model,
             "chunking_strategy": result.chunking_strategy,
             "llm_model": result.llm_model,
+            "processing_time_seconds": result.processing_time_seconds,
         }
 
 
