@@ -1,3 +1,5 @@
+import math
+
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 
 from app.api.dependencies import get_current_user
@@ -35,7 +37,7 @@ async def list_rules(
         page=page, page_size=page_size,
         sort_by=sort_by, sort_order=sort_order,
     )
-    total_pages = max(1, -(-total // page_size))  # ceiling division
+    total_pages = max(1, math.ceil(total / page_size))
     return PaginatedResponse[RuleResponse](
         items=[
             RuleResponse(

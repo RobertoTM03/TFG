@@ -46,6 +46,10 @@ export function useTaskWebSocket(taskId, onUpdate) {
       }
     };
 
+    ws.onerror = (err) => {
+      console.error("WebSocket error:", err);
+    };
+
     ws.onclose = () => {
       wsRef.current = null;
     };

@@ -43,6 +43,9 @@ class Database(ConnectionProviderPort, HealthCheckPort):
         conn = self._pool.getconn()
         try:
             yield conn
+        except Exception:
+            conn.rollback()
+            raise
         finally:
             self._pool.putconn(conn)
 

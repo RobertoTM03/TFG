@@ -240,7 +240,7 @@ class _WorkerThread:
         except Exception as exc:
             error_payload = json.dumps({
                 "code": "UNEXPECTED_ERROR",
-                "message": "Ocurrió un error inesperado durante la evaluación. Contacta con soporte si persiste.",
+                "message": "An unexpected error occurred during evaluation. Contact support if the issue persists.",
                 "technical": str(exc),
             })
             self._db.fail_task(task_id, error_payload)
@@ -312,7 +312,7 @@ class _WorkerThread:
                     "error", "Validation error — see PR comment",
                 )
 
-            body = "## Informe de evaluación\n\nNo ha sido posible completar la evaluación en estos momentos. Por favor, inténtalo de nuevo más tarde.\n\n---\n_Generado automáticamente_"
+            body = "## Evaluation report\n\nThe evaluation could not be completed at this time. Please try again later.\n\n---\n_Automatically generated_"
             github_app.post_pr_comment(installation_id, owner_login, repo_name, task["pr_number"], body)
         except Exception as exc:
             logger.error(f"[{self._name}] Failed to post error review for task {task['id']}: {exc}")
