@@ -325,8 +325,8 @@ class _WorkerThread:
                 self._ws_manager.notify_task(task_id, user_id, message),
                 self._loop,
             )
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.warning(f"WebSocket notification failed for task {task_id}: {exc}")
 
     @staticmethod
     def _serialize_result(result) -> dict:
