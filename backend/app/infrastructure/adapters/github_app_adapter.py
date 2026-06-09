@@ -54,9 +54,7 @@ class GitHubAppAdapter(GitHubAppPort):
         data = r.json()
         token = data["token"]
         
-        expires_at = datetime.fromisoformat(
-            data["expires_at"].replace("Z", "+00:00")
-        ).timestamp()
+        expires_at = datetime.fromisoformat(data["expires_at"]).timestamp()
         self._token_cache[installation_id] = (token, expires_at)
         return token
 

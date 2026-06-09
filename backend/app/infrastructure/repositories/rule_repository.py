@@ -32,19 +32,16 @@ class RuleRepository(RuleRepositoryPort):
         with self._conn() as conn:
             with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
                 cur.execute(
-                    """SELECT COUNT(*) FROM rules
-                       WHERE user_id = %s AND repository_full_name = %s""",
-                    (user_id, repo_full_name),
-                )
-                total = cur.fetchone()["count"]
-                cur.execute(
-                    f"""SELECT * FROM rules
+                    f"""SELECT *, COUNT(*) OVER () AS _total
+                        FROM rules
                         WHERE user_id = %s AND repository_full_name = %s
                         ORDER BY {order_clause}
                         LIMIT %s OFFSET %s""",
                     (user_id, repo_full_name, page_size, offset),
                 )
-                rows = [dict(r) for r in cur.fetchall()]
+                raw = cur.fetchall()
+            total = raw[0]["_total"] if raw else 0
+            rows = [{k: v for k, v in r.items() if k != "_total"} for r in raw]
             return rows, total
 
     def count_rules(self, user_id: str, repo_full_name: str) -> int:
