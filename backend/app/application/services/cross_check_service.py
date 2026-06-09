@@ -51,7 +51,13 @@ class CrossCheckService:
             return discriminator_eval, cross_check
         except Exception as exc:
             logger.error(f"Discriminator unavailable, falling back to conservative verdict: {exc}")
-            fallback = max(primary, secondary, key=lambda e: _VERDICT_RANK.get(e.verdict, 1))
+            for label, ev in (("primary", primary), ("secondary", secondary)):
+                if ev.verdict not in _VERDICT_RANK:
+                    logger.error(
+                        f"Unknown verdict '{ev.verdict}' from {label} model — "
+                        "treating as 'fail' for conservative fallback"
+                    )
+            fallback = max(primary, secondary, key=lambda e: _VERDICT_RANK.get(e.verdict, len(_VERDICT_RANK)))
             cross_check = CrossCheckedEvaluation(
                 primary=primary,
                 secondary=secondary,

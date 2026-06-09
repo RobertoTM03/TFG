@@ -8,6 +8,23 @@ from typing import List, Optional, Tuple
 from git import GitCommandError, Repo
 from loguru import logger
 
+# git does not provide stable exit codes for semantic error categories (auth,
+# not-found, network), so stderr pattern matching is the standard approach.
+# Tested against git >= 2.39. Add new patterns here when observed in the wild.
+
+_AUTH_ERRORS = (
+    "could not read Username",
+    "could not read Password",
+    "Authentication failed",
+    "authentication required",
+)
+
+_NOT_FOUND_ERRORS = (
+    "not found",
+    "does not exist",
+)
+
+# Transient network/TLS errors that are worth retrying automatically.
 _TRANSIENT_ERRORS = (
     "GnuTLS",
     "handshake failed",
@@ -83,21 +100,13 @@ class GitRepositoryAdapter(RepositoryPort):
                 shutil.rmtree(tmp_dir, ignore_errors=True)
                 stderr = str(e.stderr).strip() if e.stderr else ""
 
-                if (
-                    "could not read Username" in stderr
-                    or "could not read Password" in stderr
-                    or "Authentication failed" in stderr
-                    or "authentication required" in stderr.lower()
-                ):
+                if any(kw in stderr for kw in _AUTH_ERRORS):
                     raise RuntimeError(
                         f"Authentication failed cloning {safe}. "
                         "The repository may be private and the stored token may lack 'repo' scope."
                     ) from e
 
-                if (
-                    "not found" in stderr.lower()
-                    or "does not exist" in stderr.lower()
-                ):
+                if any(kw in stderr.lower() for kw in _NOT_FOUND_ERRORS):
                     raise RuntimeError(
                         f"Repository not found: {safe}. Check the URL."
                     ) from e

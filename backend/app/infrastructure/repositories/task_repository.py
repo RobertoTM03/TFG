@@ -155,7 +155,12 @@ class TaskRepository(TaskRepositoryPort):
             conn.commit()
             return dict(row) if row else None
 
-    def requeue_task(self, task_id: str, delay_seconds: int) -> None:
+    def requeue_task(
+        self,
+        task_id: str,
+        delay_seconds: int,
+        progress_message: str = "Service temporarily unavailable. Evaluation will resume automatically.",
+    ) -> None:
         with self._conn() as conn:
             with conn.cursor() as cur:
                 cur.execute(
@@ -165,9 +170,9 @@ class TaskRepository(TaskRepositoryPort):
                            retry_after = NOW() + %s * INTERVAL '1 second',
                            started_at = NULL,
                            error = NULL,
-                           progress_message = 'Service temporarily unavailable. Evaluation will resume automatically.'
+                           progress_message = %s
                        WHERE id = %s""",
-                    (delay_seconds, task_id),
+                    (delay_seconds, progress_message, task_id),
                 )
             conn.commit()
 

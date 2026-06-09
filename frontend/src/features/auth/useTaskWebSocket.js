@@ -22,15 +22,27 @@ export function useTaskWebSocket(taskId, onUpdate) {
     };
 
     ws.onmessage = (event) => {
+      let msg;
       try {
-        const msg = JSON.parse(event.data);
+        msg = JSON.parse(event.data);
+      } catch {
+        console.warn("WebSocket: malformed message ignored", event.data);
+        return;
+      }
+      try {
         if (msg.type === "connected") {
           ws.send(JSON.stringify({ type: "subscribe", task_id: taskId }));
-        } else if (msg.type === "task_state") {
+        } else if (
+          msg.type === "task_state" ||
+          msg.type === "task_progress" ||
+          msg.type === "task_completed" ||
+          msg.type === "task_failed" ||
+          msg.type === "task_requeued"
+        ) {
           onUpdateRef.current(msg);
         }
-      } catch {
-        // ignore malformed messages
+      } catch (err) {
+        console.error("WebSocket: error processing message", msg, err);
       }
     };
 
