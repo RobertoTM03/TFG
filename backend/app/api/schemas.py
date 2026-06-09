@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import Any, Dict, Generic, List, Optional, TypeVar
 
 from pydantic import BaseModel, Field
@@ -97,8 +98,8 @@ class TaskSummaryResponse(BaseModel):
     status: str
     progress: int
     progress_message: str
-    created_at: str
-    completed_at: Optional[str] = None
+    created_at: datetime
+    completed_at: Optional[datetime] = None
     pr_number: Optional[int] = None
     pr_author: Optional[str] = None
 
@@ -114,9 +115,9 @@ class TaskDetailResponse(BaseModel):
     progress_message: str
     result: Optional[TaskResultResponse] = None
     error: Optional[str] = None
-    created_at: str
-    started_at: Optional[str] = None
-    completed_at: Optional[str] = None
+    created_at: datetime
+    started_at: Optional[datetime] = None
+    completed_at: Optional[datetime] = None
     pr_number: Optional[int] = None
     pr_head_ref: Optional[str] = None
     pr_head_sha: Optional[str] = None
