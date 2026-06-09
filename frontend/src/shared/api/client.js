@@ -1,8 +1,6 @@
-const API_URL = import.meta.env.VITE_API_URL || "";
+import { getToken } from "@/shared/lib/storage";
 
-function getToken() {
-  return localStorage.getItem("auth_token");
-}
+const API_URL = import.meta.env.VITE_API_URL || "";
 
 async function request(path, options = {}) {
   const token = getToken();

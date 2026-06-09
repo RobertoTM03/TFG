@@ -214,11 +214,11 @@ class _WorkerThread:
                 error_payload = json.dumps({
                     "code": code,
                     "message": (
-                        f"El servicio de IA no respondió tras {max_retries} intentos. "
-                        "Inténtalo de nuevo más tarde."
+                        f"LLM service did not respond after {max_retries} attempts. "
+                        "Please try again later."
                         if isinstance(exc, LLMUnavailableError) else
-                        f"El servicio de búsqueda semántica no respondió tras {max_retries} intentos. "
-                        "Inténtalo de nuevo más tarde."
+                        f"Vector search service did not respond after {max_retries} attempts. "
+                        "Please try again later."
                     ),
                     "technical": str(exc),
                 })

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useCallback } from "react";
 import { getToken } from "@/shared/lib/storage";
 
-const WS_URL = import.meta.env.VITE_WS_URL || "ws://localhost:8000";
+const WS_URL = import.meta.env.VITE_WS_URL || "ws://localhost:8080";
 
 export function useTaskWebSocket(taskId, onUpdate) {
   const wsRef = useRef(null);
