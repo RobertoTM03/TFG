@@ -86,6 +86,9 @@ class Settings(BaseSettings):
     CLONE_MAX_RETRIES: int = 3
     CLONE_RETRY_DELAY: float = 5.0
 
+    # WebSocket
+    WS_MAX_CONNECTIONS_PER_USER: int = 5
+
     # Background Worker
     WORKER_POLL_INTERVAL: int = 2
     WORKER_CONCURRENCY: int = 1       # number of parallel worker threads
@@ -156,6 +159,7 @@ class Settings(BaseSettings):
     @field_validator(
         "MAX_RULES_PER_REPO", "WORKER_POLL_INTERVAL", "WORKER_CONCURRENCY",
         "WORKER_MAX_TASK_RETRIES", "WORKER_RETRY_DELAY", "LLM_MAX_RETRIES", "BATCH_SIZE",
+        "WS_MAX_CONNECTIONS_PER_USER",
     )
     @classmethod
     def _check_positive_int(cls, v: int, info) -> int:

@@ -224,7 +224,12 @@ async def ws_tasks(websocket: WebSocket):
 
     ws_manager = websocket.app.state.ws_manager
     user_id = str(user["id"])
-    await ws_manager.connect(websocket, user_id)
+
+    try:
+        await ws_manager.connect(websocket, user_id)
+    except ConnectionError:
+        await websocket.close(code=4008, reason="Too many connections")
+        return
 
     try:
         while True:

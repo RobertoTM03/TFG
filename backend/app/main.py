@@ -34,7 +34,7 @@ async def lifespan(application: FastAPI):
         logger.warning(f"[config] {warning}")
 
     container = Container(settings)
-    ws_manager = WebSocketManager()
+    ws_manager = WebSocketManager(max_connections_per_user=settings.WS_MAX_CONNECTIONS_PER_USER)
     worker = TaskWorker(
         container,
         container.task_repo,

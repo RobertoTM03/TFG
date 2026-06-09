@@ -7,13 +7,17 @@ from loguru import logger
 class WebSocketManager:
     """Manages WebSocket connections grouped by user ID, with task subscriptions"""
 
-    def __init__(self) -> None:
+    def __init__(self, max_connections_per_user: int = 5) -> None:
+        self._max_connections_per_user = max_connections_per_user
         # user_id -> list of active WebSocket connections
         self._connections: Dict[str, List[WebSocket]] = {}
         # id(ws) -> set of task_ids the connection is subscribed to
         self._subscriptions: Dict[int, Set[str]] = {}
 
+
     async def connect(self, ws: WebSocket, user_id: str) -> None:
+        if len(self._connections.get(user_id, [])) >= self._max_connections_per_user:
+            raise ConnectionError("Too many connections")
         if user_id not in self._connections:
             self._connections[user_id] = []
         self._connections[user_id].append(ws)
