@@ -1,128 +1,166 @@
-# TFG — Validador de Repositorios
+# Semantic Repository Validator
 
-Sistema de validación semántica de repositorios GitHub: los usuarios definen reglas en lenguaje natural y el sistema evalúa si el código las cumple usando LLMs y búsqueda vectorial.
+A platform that evaluates whether a codebase complies with a set of rules written in plain language. Rules are defined once per repository; the system checks them automatically on every pull request and posts a detailed per-rule verdict with explanations and code references.
 
-## URLs locales
-
-| Servicio         | URL                          |
-|------------------|------------------------------|
-| Frontend         | http://localhost:3000        |
-| API / Backend    | http://localhost:8080        |
-| Swagger UI       | http://localhost:8080/docs   |
-| ChromaDB         | http://localhost:8000        |
-| PostgreSQL       | localhost:5432 — `tfg_validator` |
-| ngrok inspector  | http://localhost:4040        |
+![Dashboard](docs/assets/dashboard.png)
 
 ---
 
-## Requisitos previos
+## How it works
 
-- [Docker Desktop](https://www.docker.com/products/docker-desktop/) instalado y en ejecución
-- Cuenta en [Google AI Studio](https://aistudio.google.com) para obtener `GOOGLE_API_KEY`
-- Cuenta en [Voyage AI](https://www.voyageai.com) para obtener `VOYAGE_API_KEY` (solo si `EMBEDDING_MODEL=voyage`)
-- Cuenta en [ngrok](https://ngrok.com) para obtener `NGROK_AUTHTOKEN`
-- GitHub App (para login de usuarios y validación automática en PRs)
+For each rule, the system retrieves the most semantically relevant code chunks from the repository using vector search, builds a focused context window, and asks a configured LLM to evaluate compliance. Results include a verdict (`pass`, `partial`, or `fail`), a explanation, and actionable suggestions.
+
+When **cross-check mode** is enabled, two independent LLMs evaluate each rule. If they agree, the consensus result is used. If they disagree, a third discriminator LLM adjudicates. This pipeline reduces false positives caused by LLM inconsistency.
+
+![Evaluation result](docs/assets/task-detail.png)
+
+**Key capabilities**
+
+- Natural-language rule definitions with per-rule enable/disable toggles
+- Incremental indexing — only changed files are re-embedded between runs
+- Dual-model cross-check with discriminator and full audit trail
+- Automatic GitHub PR evaluation: commit status + detailed comment
+- Real-time progress via WebSocket with polling fallback
 
 ---
 
-## 1. Configurar variables de entorno
+## Stack
 
-Copia el fichero de ejemplo y rellena los valores:
+| Layer | Technology |
+|---|---|
+| Frontend | React 18, Feature-Sliced Design, Tailwind CSS |
+| Backend | FastAPI, hexagonal architecture, Python 3.12 |
+| Database | PostgreSQL 16 (pgvector for embeddings) |
+| LLM providers | Google Gemini, Azure OpenAI |
+| Embeddings | Google Gemini Embedding, Voyage AI |
+| Infrastructure | Docker Compose, ChromaDB, ngrok |
+
+---
+
+## Prerequisites
+
+- Docker Desktop
+- [Google AI Studio](https://aistudio.google.com) API key (`GOOGLE_API_KEY`)
+- [ngrok](https://ngrok.com) account (`NGROK_AUTHTOKEN`)
+- A GitHub App (see [GitHub App setup](#github-app-setup))
+- Azure OpenAI deployment — optional, required for `azure/*` models
+- [LangSmith](https://smith.langchain.com) account — optional, required for cross-check discriminator
+
+---
+
+## Quick start
 
 ```bash
+git clone <repository-url>
+cd TFG
 cp .env.example .env
 ```
 
-### Variables obligatorias para el funcionamiento básico
+Set the minimum required variables in `.env`:
 
 ```env
-# GitHub App (login de usuarios — Client ID y Secret de la propia GitHub App)
-GITHUB_CLIENT_ID=       # Client ID de tu GitHub App
-GITHUB_CLIENT_SECRET=   # Client Secret de tu GitHub App
+GITHUB_CLIENT_ID=           # from your GitHub App (OAuth credentials)
+GITHUB_CLIENT_SECRET=
 GITHUB_CALLBACK_URL=http://localhost:8080/auth/callback
-
-# APIs de IA
-GOOGLE_API_KEY=         # Clave de Google AI Studio
-VOYAGE_API_KEY=         # Solo necesaria si EMBEDDING_MODEL=voyage
-
-# ngrok (para recibir webhooks de GitHub en local)
+GOOGLE_API_KEY=
 NGROK_AUTHTOKEN=
 ```
 
-El resto de variables tienen valores por defecto válidos para desarrollo local. Consulta `.env.example` para una descripción completa de cada una.
-
----
-
-## 2. Crear la GitHub App (login y validación automática en PRs)
-
-La GitHub App actúa como identidad del bot (publica estados en commits, hace checkout de repositorios privados) y también proporciona las credenciales OAuth para el login de usuarios.
-
-### 2.1 Crear la app
-
-1. Ve a **GitHub → Settings → Developer settings → GitHub Apps → New GitHub App**
-2. Rellena:
-   - **GitHub App name**: el nombre que quieras (p. ej. `rule-validator-tfg`)
-   - **Homepage URL**: `http://localhost:3000`
-   - **Callback URL**: `http://localhost:8080/auth/callback`
-   - **Webhook URL**: déjalo en blanco por ahora (lo actualizarás tras arrancar ngrok)
-   - **Webhook secret**: genera una cadena aleatoria segura y guárdala
-3. **Permisos necesarios** (Repository permissions):
-   - `Contents` → Read-only
-   - `Pull requests` → Read & write
-   - `Commit statuses` → Read & write
-4. **Subscribe to events**: marca `Pull request` (`Installation` se activa automáticamente)
-5. Crea la app y anota:
-   - **App ID** (número en la página de configuración)
-   - **App slug** (parte final de la URL, p. ej. `rule-validator-tfg`)
-   - **Client ID** y genera un **Client Secret** (sección *OAuth credentials* de la misma página)
-6. En la sección **Private keys**, genera y descarga la clave `.pem`
-7. Coloca el fichero `.pem` en `backend/secrets/` (el nombre es irrelevante)
-
-### 2.2 Configurar las variables en `.env`
-
-```env
-GITHUB_APP_ID=              # Número de App ID
-GITHUB_APP_PRIVATE_KEY_PATH=/app/secrets/tu-archivo.pem
-GITHUB_APP_SLUG=            # Slug de la app (p. ej. rule-validator-tfg)
-GITHUB_WEBHOOK_SECRET=      # El secret que elegiste al crear la app
-APPROVAL_THRESHOLD=0.8      # Puntuación mínima para aprobar el PR (0.0 – 1.0)
-```
-
-### 2.3 Actualizar la Webhook URL tras arrancar
-
-Cuando el stack esté en marcha, ngrok genera una URL pública aleatoria. Debes apuntarla en la GitHub App:
-
-1. Arranca el stack (ver paso 3)
-2. Abre http://localhost:4040 y copia la URL `https://xxxx.ngrok-free.app`
-3. Ve a **GitHub → Settings → Developer settings → GitHub Apps → tu app → Edit**
-4. Pega la URL en **Webhook URL**, añadiendo el path del webhook:
-   ```
-   https://xxxx.ngrok-free.app/webhooks/github
-   ```
-5. Guarda los cambios
-
-> **Nota**: la URL de ngrok cambia cada vez que reinicias el stack (en el plan gratuito). Repite el paso 3.3 si el webhook deja de funcionar.
-
----
-
-## 3. Arrancar el stack
+Start the stack:
 
 ```bash
 docker compose up --build
 ```
 
-Los servicios arrancan en este orden: PostgreSQL → ChromaDB → Backend → ngrok → Frontend.
-
-> El frontend se construye durante `docker compose up --build` (primera vez puede tardar ~1-2 min). Las variables `VITE_API_URL` y `VITE_WS_URL` se incrustan en el build; si necesitas cambiar la URL del backend, pasa los argumentos explícitamente:
-> ```bash
-> docker compose build frontend --build-arg VITE_API_URL=https://mi-dominio.com --build-arg VITE_WS_URL=wss://mi-dominio.com
-> ```
+Open [http://localhost:3000](http://localhost:3000) and sign in with GitHub. All other variables have defaults suitable for local development — see `.env.example` for the full reference.
 
 ---
 
-## 4. Uso básico
+## GitHub App setup
 
-1. Abre http://localhost:3000 y haz login con tu cuenta de GitHub
-2. Si no tienes la GitHub App instalada en ningún repositorio, el front te redirigirá para instalarla; una vez instalada, los repositorios aparecerán disponibles automáticamente
-3. Define las reglas de validación en lenguaje natural (p. ej. *"El proyecto debe tener un README con instrucciones de instalación"*)
-4. Lanza una validación manual o abre un PR en un repositorio donde tengas la GitHub App instalada para que se ejecute automáticamente
+The GitHub App provides OAuth credentials for user login and acts as the bot that posts PR comments and commit statuses.
+
+1. Go to **GitHub → Settings → Developer settings → GitHub Apps → New GitHub App**
+2. Set **Homepage URL** to `http://localhost:3000`, **Callback URL** to `http://localhost:8080/auth/callback`, and generate a **Webhook secret**
+3. Grant repository permissions: `Contents` (read), `Pull requests` (read & write), `Commit statuses` (read & write). Subscribe to the `Pull request` event
+4. After creating the app, generate a **private key** (`.pem`) and place it in `backend/secrets/`
+5. Add to `.env`:
+
+```env
+GITHUB_APP_ID=
+GITHUB_APP_PRIVATE_KEY_PATH=/app/secrets/your-key.pem
+GITHUB_APP_SLUG=
+GITHUB_WEBHOOK_SECRET=
+APPROVAL_THRESHOLD=0.8      # score >= threshold marks the PR as approved
+```
+
+6. After the stack starts, copy the ngrok URL from [http://localhost:4040](http://localhost:4040) and set it as the **Webhook URL** in the GitHub App settings:
+   ```
+   https://<subdomain>.ngrok-free.app/webhooks/github
+   ```
+
+> On the ngrok free plan the tunnel URL changes on every restart. Update the Webhook URL accordingly.
+
+---
+
+## Cross-check discriminator (LangSmith)
+
+Create a prompt named `cross-check-discriminator` in LangSmith Hub with the following messages, then set the corresponding variables in `.env`.
+
+**System message**
+```
+You are a senior software engineering expert adjudicating two conflicting evaluations of the same semantic rule.
+
+Respond ONLY with valid JSON (no markdown):
+{
+    "verdict": "pass" | "fail" | "partial",
+    "explanation": "<reasoning citing the strongest arguments from both evaluations>",
+    "suggestions": ["<suggestion 1>"]
+}
+
+If suggestions are not needed, return []. Do not include control characters inside JSON strings.
+```
+
+**Human message**
+```
+Rule: {rule}
+
+Evaluation A (verdict: {primary_verdict}): {primary_explanation}
+Evaluation B (verdict: {secondary_verdict}): {secondary_explanation}
+
+Adjudicate and emit the final verdict.
+```
+
+```env
+LANGSMITH_API_KEY=
+LANGSMITH_PROJECT=TFG
+LANGSMITH_TRACING=true
+LLM_PRIMARY_MODEL=gemini-2.5-flash
+LLM_SECONDARY_MODEL=gemini-3.1-flash-lite-preview
+LLM_DISCRIMINATOR_MODEL=azure/gpt-4o
+LANGSMITH_DISCRIMINATOR_PROMPT=cross-check-discriminator
+```
+
+---
+
+## Usage guide
+
+1. **Sign in** at [http://localhost:3000](http://localhost:3000) using your GitHub account.
+2. **Install the GitHub App** on the repositories you want to validate. The app will prompt you on first login if no installation is detected.
+3. **Open a repository** from the dashboard and go to the **Rules** tab.
+4. **Add rules** in plain language, one per entry (e.g. *"All functions must have a docstring"*, *"Dependencies must be pinned to exact versions"*). Rules can be reordered and individually disabled.
+5. **Configure the repository** in the Settings tab: choose the LLM model, enable cross-check mode, and set the approval threshold.
+6. **Run a validation** manually with the *Validate* button, or open a pull request on GitHub — the system evaluates automatically and posts the result as a PR comment and commit status.
+7. **Inspect results** in the task detail view: each rule shows its verdict, the LLM explanation, relevant code excerpts, and — when cross-check is active — the full audit trail with primary, secondary, and discriminator verdicts.
+
+---
+
+## Local service URLs
+
+| Service | URL |
+|---|---|
+| Frontend | http://localhost:3000 |
+| Backend API | http://localhost:8080 |
+| Swagger UI | http://localhost:8080/docs |
+| ngrok inspector | http://localhost:4040 |
+| PostgreSQL | `localhost:5432` — `tfg_validator` |
