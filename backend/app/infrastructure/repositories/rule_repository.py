@@ -5,7 +5,11 @@ import psycopg2.extras
 from app.domain.ports.connection_provider import ConnectionProviderPort
 from app.domain.ports.rule_repository import RuleRepositoryPort
 
-_RULE_SORT_COLUMNS = {"position", "rule_text"}
+_RULE_SORT_COLUMNS: Dict[str, str] = {
+    "position": "position",
+    "rule_text": "rule_text",
+}
+_RULE_SORT_DEFAULT = "position"
 
 
 class RuleRepository(RuleRepositoryPort):
@@ -21,8 +25,9 @@ class RuleRepository(RuleRepositoryPort):
         sort_by: str = "position",
         sort_order: str = "asc",
     ) -> Tuple[List[Dict[str, Any]], int]:
-        col = sort_by if sort_by in _RULE_SORT_COLUMNS else "position"
+        col = _RULE_SORT_COLUMNS.get(sort_by, _RULE_SORT_DEFAULT)
         order = "ASC" if sort_order.lower() == "asc" else "DESC"
+        order_clause = f"{col} {order}"
         offset = (page - 1) * page_size
         with self._conn() as conn:
             with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
@@ -35,7 +40,7 @@ class RuleRepository(RuleRepositoryPort):
                 cur.execute(
                     f"""SELECT * FROM rules
                         WHERE user_id = %s AND repository_full_name = %s
-                        ORDER BY {col} {order}
+                        ORDER BY {order_clause}
                         LIMIT %s OFFSET %s""",
                     (user_id, repo_full_name, page_size, offset),
                 )

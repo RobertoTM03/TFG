@@ -6,7 +6,15 @@ import psycopg2.extras
 from app.domain.ports.connection_provider import ConnectionProviderPort
 from app.domain.ports.task_repository import TaskRepositoryPort
 
-_TASK_SORT_COLUMNS = {"created_at", "status", "repository_full_name", "progress", "completed_at", "pr_number"}
+_TASK_SORT_COLUMNS: Dict[str, str] = {
+    "created_at": "created_at",
+    "status": "status",
+    "repository_full_name": "repository_full_name",
+    "progress": "progress",
+    "completed_at": "completed_at",
+    "pr_number": "pr_number",
+}
+_TASK_SORT_DEFAULT = "created_at"
 
 
 class TaskRepository(TaskRepositoryPort):
@@ -110,8 +118,9 @@ class TaskRepository(TaskRepositoryPort):
         pr_author: Optional[str] = None,
         status: Optional[str] = None,
     ) -> List[Dict[str, Any]]:
-        col = sort_by if sort_by in _TASK_SORT_COLUMNS else "created_at"
+        col = _TASK_SORT_COLUMNS.get(sort_by, _TASK_SORT_DEFAULT)
         order = "DESC" if sort_order.lower() == "desc" else "ASC"
+        order_clause = f"{col} {order}"
         offset = (page - 1) * page_size
         where, params = self._build_task_filter(user_id, repository_full_name, pr_author, status)
         params += [page_size, offset]
@@ -120,7 +129,7 @@ class TaskRepository(TaskRepositoryPort):
                 cur.execute(
                     f"""SELECT * FROM tasks
                         WHERE {where}
-                        ORDER BY {col} {order}
+                        ORDER BY {order_clause}
                         LIMIT %s OFFSET %s""",
                     params,
                 )
