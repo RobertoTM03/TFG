@@ -9,6 +9,7 @@ from loguru import logger
 
 from app.application.services.cross_check_service import CrossCheckService
 from app.domain.models.chunk import SearchResult
+from app.domain.models.cross_check import CrossCheckedEvaluation
 from app.domain.models.evaluation import RuleEvaluation
 from app.domain.models.validation_result import (
     FileMatch,
@@ -541,7 +542,6 @@ class ValidationService:
 
     @staticmethod
     def _restore_cross_check(validation: "RuleValidation", saved: dict) -> None:
-        from app.domain.models.cross_check import CrossCheckedEvaluation
         ValidationService._restore_evaluation(validation, saved)
         cc = saved.get("cross_check")
         if cc:
