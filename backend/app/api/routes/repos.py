@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, Request
 
-from app.api.dependencies import get_current_user
+from app.api.dependencies import extract_bearer_token, get_current_user
 from app.infrastructure.limiter import limiter, rate_limit_default
 
 router = APIRouter(prefix="/api", tags=["Repositories"])
@@ -32,7 +32,7 @@ async def list_repos(
 ):
     """Return all repos accessible through the user's GitHub App installations."""
     github_app = request.app.state.container.github_app
-    user_token = request.headers.get("Authorization", "")[7:]
+    user_token = extract_bearer_token(request)
 
     repo_config_repo = request.app.state.repo_config_repo
     installations = github_app.get_user_installations(user_token)
@@ -67,7 +67,7 @@ async def list_installations(
 ):
     """Return all GitHub App installations the user can access."""
     github_app = request.app.state.container.github_app
-    installations = github_app.get_user_installations(request.headers.get("Authorization", "")[7:])
+    installations = github_app.get_user_installations(extract_bearer_token(request))
     return [
         {
             "installation_id": i.installation_id,
