@@ -471,3 +471,16 @@ class Container:
                         task_repo=self.task_repo,
                     )
         return self._contributor_service
+
+    def get_app_info(self) -> dict:
+        available_models = [
+            {"id": key, "display_name": spec.display_name, "provider": spec.provider}
+            for key, spec in sorted(LLM_REGISTRY.items())
+        ]
+        return {
+            "app_slug": self._settings.GITHUB_APP_SLUG,
+            "available_llm_models": available_models,
+            "default_llm_model": self._settings.LLM_MODEL,
+            "default_llm_primary_model": self._settings.LLM_PRIMARY_MODEL,
+            "default_llm_secondary_model": self._settings.LLM_SECONDARY_MODEL,
+        }
