@@ -27,7 +27,7 @@ class TaskRepository(TaskRepositoryPort):
         repository_full_name: str,
         rules: List[str],
         user_id: Optional[str] = None,
-        enable_cross_check: bool = False,
+        enable_cross_check: bool = True,
         pr_number: Optional[int] = None,
         pr_head_sha: Optional[str] = None,
         pr_head_ref: Optional[str] = None,
