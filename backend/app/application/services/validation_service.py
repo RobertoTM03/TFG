@@ -552,11 +552,13 @@ class ValidationService:
                 verdict=cc.get("primary_verdict", "fail"),
                 explanation=cc.get("primary_explanation", ""),
                 llm_provider=cc.get("primary_model", ""),
+                suggestions=cc.get("primary_suggestions", []),
             )
             secondary = RuleEvaluation(
                 verdict=cc.get("secondary_verdict", "fail"),
                 explanation=cc.get("secondary_explanation", ""),
                 llm_provider=cc.get("secondary_model", ""),
+                suggestions=cc.get("secondary_suggestions", []),
             )
             validation.cross_check = CrossCheckedEvaluation(
                 primary=primary,

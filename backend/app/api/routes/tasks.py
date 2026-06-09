@@ -1,4 +1,5 @@
 import json
+import math
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, WebSocket
@@ -123,7 +124,7 @@ async def list_tasks(
         status=status,
     )
 
-    total_pages = max(1, -(-total // page_size))
+    total_pages = max(1, math.ceil(total / page_size))
     
     return PaginatedResponse[TaskSummaryResponse](
         items=[
