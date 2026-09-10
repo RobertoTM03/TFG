@@ -13,17 +13,17 @@ export function Modal({ open, onClose, title, children, footer }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div
-        className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+        className="absolute inset-0 bg-[var(--taro-scrim)]"
         onClick={onClose}
       />
-      <div className="relative z-10 w-full max-w-lg rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] shadow-xl">
-        <div className="flex items-center justify-between border-b border-[var(--color-border)] px-6 py-4">
-          <h2 className="text-base font-semibold text-[var(--color-text)]">
+      <div className="relative z-10 w-full max-w-lg rounded-[var(--taro-radius-panel)] border border-[var(--taro-line)] bg-[var(--taro-surface)]">
+        <div className="flex items-center justify-between border-b border-[var(--taro-line)] px-6 py-5">
+          <h2 className="font-[family-name:var(--taro-font-display)] text-[21px] font-semibold tracking-[-0.4px] text-[var(--taro-ink)]">
             {title}
           </h2>
           <button
             onClick={onClose}
-            className="text-[var(--color-text-muted)] hover:text-[var(--color-text)] transition-colors"
+            className="cursor-pointer text-[var(--taro-ink-dim)] transition-[color] duration-[250ms] hover:text-[var(--taro-ink)]"
           >
             <svg
               xmlns="http://www.w3.org/2000/svg"
@@ -39,9 +39,9 @@ export function Modal({ open, onClose, title, children, footer }) {
             </svg>
           </button>
         </div>
-        <div className="px-6 py-4">{children}</div>
+        <div className="px-6 py-5">{children}</div>
         {footer && (
-          <div className="flex justify-end gap-2 border-t border-[var(--color-border)] px-6 py-4">
+          <div className="flex justify-end gap-3 border-t border-[var(--taro-line)] px-6 py-5">
             {footer}
           </div>
         )}

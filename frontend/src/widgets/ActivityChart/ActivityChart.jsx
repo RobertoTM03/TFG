@@ -92,8 +92,8 @@ function buildChartData(tasks, hours, groupBy) {
 function ChartTooltip({ active, payload, label }) {
   if (!active || !payload?.length) return null;
   return (
-    <div className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-xs shadow-xl">
-      <p className="font-semibold text-[var(--color-text)] mb-1.5">{label}</p>
+    <div className="rounded-lg border border-[var(--taro-line)] bg-[var(--taro-surface)] px-3 py-2 text-xs shadow-xl">
+      <p className="font-semibold text-[var(--taro-ink)] mb-1.5">{label}</p>
       {payload.map((p) => (
         <p
           key={p.dataKey}
@@ -153,8 +153,8 @@ function RepoDropdown({ repoNames, selected, onChange }) {
         className={clsx(
           "flex items-center gap-2 rounded-lg border px-3 py-1.5 text-xs transition-colors",
           open
-            ? "border-indigo-500 bg-[var(--color-surface-2)] text-[var(--color-text)]"
-            : "border-[var(--color-border)] bg-[var(--color-surface-2)] text-[var(--color-text-muted)] hover:border-indigo-500/50 hover:text-[var(--color-text)]",
+            ? "border-[var(--taro-line-brass)] bg-[var(--taro-raised)] text-[var(--taro-ink)]"
+            : "border-[var(--taro-line)] bg-[var(--taro-raised)] text-[var(--taro-ink-muted)] hover:border-[var(--taro-line-brass)] hover:text-[var(--taro-ink)]",
         )}
       >
         <svg
@@ -184,18 +184,18 @@ function RepoDropdown({ repoNames, selected, onChange }) {
       </button>
 
       {open && (
-        <div className="absolute left-0 top-full mt-1.5 z-20 w-64 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] shadow-xl overflow-hidden">
+        <div className="absolute left-0 top-full mt-1.5 z-20 w-64 rounded-xl border border-[var(--taro-line)] bg-[var(--taro-surface)] shadow-xl overflow-hidden">
           {/* Select all */}
           <button
             onClick={toggleAll}
-            className="flex w-full items-center gap-2 px-3 py-2.5 text-xs font-medium text-[var(--color-text-muted)] hover:bg-[var(--color-surface-2)] border-b border-[var(--color-border)] transition-colors"
+            className="flex w-full items-center gap-2 px-3 py-2.5 text-xs font-medium text-[var(--taro-ink-muted)] hover:bg-[var(--taro-raised)] border-b border-[var(--taro-line)] transition-colors"
           >
             <div
               className={clsx(
                 "h-4 w-4 rounded border flex items-center justify-center flex-shrink-0 transition-colors",
                 allSelected
-                  ? "bg-indigo-600 border-indigo-600"
-                  : "border-[var(--color-border)]",
+                  ? "bg-[var(--taro-brass)] border-[var(--taro-line-brass)]"
+                  : "border-[var(--taro-line)]",
               )}
             >
               {allSelected && (
@@ -213,7 +213,7 @@ function RepoDropdown({ repoNames, selected, onChange }) {
                 </svg>
               )}
               {!allSelected && selected.size > 0 && (
-                <span className="h-1.5 w-1.5 rounded-sm bg-indigo-400 inline-block" />
+                <span className="h-1.5 w-1.5 rounded-sm bg-[var(--taro-brass)] inline-block" />
               )}
             </div>
             Todos los repositorios
@@ -227,14 +227,14 @@ function RepoDropdown({ repoNames, selected, onChange }) {
                 <button
                   key={name}
                   onClick={() => toggleOne(name)}
-                  className="flex w-full items-center gap-2 px-3 py-2 text-xs hover:bg-[var(--color-surface-2)] transition-colors"
+                  className="flex w-full items-center gap-2 px-3 py-2 text-xs hover:bg-[var(--taro-raised)] transition-colors"
                 >
                   <div
                     className={clsx(
                       "h-4 w-4 rounded border flex items-center justify-center flex-shrink-0 transition-colors",
                       checked
-                        ? "bg-indigo-600 border-indigo-600"
-                        : "border-[var(--color-border)]",
+                        ? "bg-[var(--taro-brass)] border-[var(--taro-line-brass)]"
+                        : "border-[var(--taro-line)]",
                     )}
                   >
                     {checked && (
@@ -252,7 +252,7 @@ function RepoDropdown({ repoNames, selected, onChange }) {
                       </svg>
                     )}
                   </div>
-                  <span className="truncate text-[var(--color-text)]">
+                  <span className="truncate text-[var(--taro-ink)]">
                     {name}
                   </span>
                 </button>
@@ -306,10 +306,10 @@ export function ActivityChart({ tasks, repos = [] }) {
   const hasData = data.some((d) => d.total > 0);
 
   return (
-    <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5">
+    <div className="rounded-xl border border-[var(--taro-line)] bg-[var(--taro-surface)] p-5">
       {/* Header row */}
       <div className="flex items-center justify-between flex-wrap gap-3 mb-5">
-        <p className="text-sm font-semibold text-[var(--color-text)]">
+        <p className="text-sm font-semibold text-[var(--taro-ink)]">
           Actividad de evaluaciones
         </p>
 
@@ -324,7 +324,7 @@ export function ActivityChart({ tasks, repos = [] }) {
           )}
 
           {/* Range selector */}
-          <div className="flex rounded-lg border border-[var(--color-border)] overflow-hidden text-xs">
+          <div className="flex rounded-lg border border-[var(--taro-line)] overflow-hidden text-xs">
             {RANGES.map((r) => (
               <button
                 key={r.value}
@@ -332,8 +332,8 @@ export function ActivityChart({ tasks, repos = [] }) {
                 className={clsx(
                   "px-3 py-1.5 transition-colors",
                   range === r.value
-                    ? "bg-indigo-600 text-white"
-                    : "text-[var(--color-text-muted)] hover:bg-[var(--color-surface-2)]",
+                    ? "bg-[var(--taro-brass)] text-white"
+                    : "text-[var(--taro-ink-muted)] hover:bg-[var(--taro-raised)]",
                 )}
               >
                 {r.label}
@@ -352,19 +352,19 @@ export function ActivityChart({ tasks, repos = [] }) {
           >
             <CartesianGrid
               strokeDasharray="3 3"
-              stroke="var(--color-border)"
+              stroke="var(--taro-line)"
               vertical={false}
             />
             <XAxis
               dataKey="name"
-              tick={{ fontSize: 11, fill: "var(--color-text-muted)" }}
+              tick={{ fontSize: 11, fill: "var(--taro-ink-muted)" }}
               axisLine={false}
               tickLine={false}
               interval="preserveStartEnd"
             />
             <YAxis
               allowDecimals={false}
-              tick={{ fontSize: 11, fill: "var(--color-text-muted)" }}
+              tick={{ fontSize: 11, fill: "var(--taro-ink-muted)" }}
               axisLine={false}
               tickLine={false}
             />
@@ -373,41 +373,44 @@ export function ActivityChart({ tasks, repos = [] }) {
               wrapperStyle={{
                 fontSize: 12,
                 paddingTop: 12,
-                color: "var(--color-text-muted)",
+                color: "var(--taro-ink-muted)",
               }}
             />
             <Line
               type="monotone"
               dataKey="total"
               name="Total"
-              stroke="#8b8fa8"
+              stroke="var(--taro-brass)"
               strokeWidth={2}
               dot={false}
               activeDot={{ r: 4 }}
+              isAnimationActive={false}
             />
             <Line
               type="monotone"
               dataKey="completadas"
               name="Completadas"
-              stroke="#10b981"
+              stroke="var(--taro-correct)"
               strokeWidth={2}
               dot={false}
               activeDot={{ r: 4 }}
+              isAnimationActive={false}
             />
             <Line
               type="monotone"
               dataKey="fallidas"
               name="Fallidas"
-              stroke="#ef4444"
+              stroke="var(--taro-incorrect)"
               strokeWidth={2}
               dot={false}
               activeDot={{ r: 4 }}
+              isAnimationActive={false}
             />
           </LineChart>
         </ResponsiveContainer>
       ) : (
         <div className="flex h-[220px] items-center justify-center">
-          <p className="text-sm text-[var(--color-text-muted)]">
+          <p className="text-sm text-[var(--taro-ink-muted)]">
             Sin datos en este rango
           </p>
         </div>

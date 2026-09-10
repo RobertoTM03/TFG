@@ -3,6 +3,8 @@ import { createRule, updateRule, deleteRule } from "@/entities/rule/api";
 import { Button } from "@/shared/ui/Button";
 import { Modal } from "@/shared/ui/Modal";
 import { Textarea } from "@/shared/ui/Input";
+import { Card } from "@/shared/ui/Card";
+import { Eyebrow, Body, Mono } from "@/shared/ui/Typography";
 
 const MAX_CHARS = 500;
 
@@ -185,133 +187,128 @@ export function RuleList({
 
   return (
     <>
-      {/* Header bar */}
-      <div className="flex items-center gap-3 mb-4">
-        <div className="flex-1">
-          <div className="flex items-center gap-2">
-            <span className="text-sm font-medium text-[var(--color-text)]">
-              {rules.length}/{maxRules} reglas definidas
-            </span>
-          </div>
+      {/* Barra de cabecera */}
+      <div className="mb-5 flex flex-wrap items-center gap-3">
+        <div className="flex-1 min-w-[180px]">
+          <Eyebrow className="block">
+            {rules.length} / {maxRules} reglas
+          </Eyebrow>
           {rules.length > 0 && (
-            <div className="mt-1 h-1.5 w-40 rounded-full bg-[var(--color-border)] overflow-hidden">
+            <div className="mt-2 h-[4px] w-40 overflow-hidden rounded-[var(--taro-radius-control)] bg-[var(--taro-line)]">
               <div
-                className={`h-full rounded-full transition-all ${rules.length >= maxRules ? "bg-amber-500" : "bg-indigo-500"}`}
+                className="h-full rounded-[var(--taro-radius-control)] bg-[var(--taro-brass)]"
                 style={{ width: `${(rules.length / maxRules) * 100}%` }}
               />
             </div>
           )}
         </div>
 
-        <button
+        <Button
+          variant="secondary"
+          size="sm"
           onClick={() => fileRef.current?.click()}
           disabled={importing}
-          className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-text-muted)] hover:text-[var(--color-text)] hover:border-[var(--color-text-muted)] transition-colors disabled:opacity-50"
         >
-          <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
-            <path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clipRule="evenodd" />
-          </svg>
           Importar JSON
-        </button>
+        </Button>
         <input ref={fileRef} type="file" accept=".json,application/json" className="hidden" onChange={handleFileChange} />
 
         {rules.length > 0 && (
           <>
-            <button
-              onClick={handleExport}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-text-muted)] hover:text-[var(--color-text)] hover:border-[var(--color-text-muted)] transition-colors"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
-                <path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM6.293 6.707a1 1 0 010-1.414l3-3a1 1 0 011.414 0l3 3a1 1 0 01-1.414 1.414L11 5.414V13a1 1 0 11-2 0V5.414L7.707 6.707a1 1 0 01-1.414 0z" clipRule="evenodd" />
-              </svg>
+            <Button variant="secondary" size="sm" onClick={handleExport}>
               Exportar JSON
-            </button>
-            <button
-              onClick={() => setDeleteAllOpen(true)}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border border-red-800/50 bg-[var(--color-surface)] text-red-400 hover:text-red-300 hover:border-red-600 transition-colors"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
-                <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
-              </svg>
+            </Button>
+            <Button variant="danger" size="sm" onClick={() => setDeleteAllOpen(true)}>
               Eliminar todas
-            </button>
+            </Button>
           </>
         )}
 
-        <button
+        <Button
+          size="sm"
           onClick={() => { setAddText(""); setAddError(null); setAddOpen(true); }}
           disabled={!canAdd}
-          className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-indigo-600 text-white hover:bg-indigo-500 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
         >
-          <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
-            <path fillRule="evenodd" d="M10 5a1 1 0 011 1v3h3a1 1 0 110 2h-3v3a1 1 0 11-2 0v-3H6a1 1 0 110-2h3V6a1 1 0 011-1z" clipRule="evenodd" />
-          </svg>
           Añadir regla
-        </button>
+        </Button>
       </div>
 
-      {/* Import feedback */}
-      {importResult?.error && (
-        <p className="text-xs text-red-400 mb-2">{importResult.error}</p>
-      )}
-      {importResult && !importResult.error && (
-        <div className="text-xs space-y-0.5 mb-2">
-          <p className="text-emerald-400">
-            {importResult.added} regla{importResult.added !== 1 ? "s" : ""} importada{importResult.added !== 1 ? "s" : ""}.
-          </p>
-          {importResult.skipped > 0 && (
-            <p className="text-amber-400">{importResult.skipped} omitida{importResult.skipped !== 1 ? "s" : ""} por límite.</p>
+      {importResult && (
+        <div className="mb-4 min-h-[20px] text-[12px] leading-[20px]">
+          {importResult.error ? (
+            <p className="text-[var(--taro-incorrect-ink)]">{importResult.error}</p>
+          ) : (
+            <>
+              <p className="text-[var(--taro-correct-ink)]">
+                {importResult.added} regla{importResult.added !== 1 ? "s" : ""} importada{importResult.added !== 1 ? "s" : ""}.
+              </p>
+              {importResult.skipped > 0 && (
+                <p className="text-[var(--taro-partial-ink)]">
+                  {importResult.skipped} omitida{importResult.skipped !== 1 ? "s" : ""} por límite.
+                </p>
+              )}
+              {importResult.errors.map((e, i) => (
+                <p key={i} className="text-[var(--taro-incorrect-ink)]">{e}</p>
+              ))}
+            </>
           )}
-          {importResult.errors.map((e, i) => (
-            <p key={i} className="text-red-400">{e}</p>
-          ))}
         </div>
       )}
 
-      {/* Rules list */}
+      {/* Lista de reglas */}
       {rules.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-[var(--color-border)] p-10 text-center">
-          <p className="text-sm text-[var(--color-text-muted)]">
+        <Card className="text-center">
+          <Body muted>
             No hay reglas definidas. Añade la primera con el botón de arriba.
-          </p>
-        </div>
+          </Body>
+        </Card>
       ) : (
-        <ol className="flex flex-col gap-2">
-          {rules.map((rule) => (
+        <ol className="flex flex-col gap-px overflow-hidden rounded-[var(--taro-radius-card)] border border-[var(--taro-line)] bg-[var(--taro-line)]">
+          {rules.map((rule, i) => (
             <li
               key={rule.id}
-              className={`flex items-center gap-3 rounded-lg border px-4 py-3 group transition-colors ${
-                rule.enabled
-                  ? "border-[var(--color-border)] bg-[var(--color-surface-2)]"
-                  : "border-[var(--color-border)] bg-[var(--color-surface)] opacity-60"
-              }`}
+              className="group flex items-center gap-4 bg-[var(--taro-surface)] px-5 py-4 transition-[background-color] duration-[250ms] hover:bg-[var(--taro-raised)]"
             >
-              {/* Toggle */}
+              <Mono className="w-6 shrink-0 text-[11.5px] text-[var(--taro-ink-dim)]">
+                {String(i + 1).padStart(2, "0")}
+              </Mono>
+
+              <Body
+                className={`flex-1 ${rule.enabled ? "" : "text-[var(--taro-ink-dim)]"}`}
+              >
+                {rule.rule_text}
+              </Body>
+
+              <Mono
+                className={`shrink-0 text-[10.5px] font-medium uppercase tracking-[0.16em] ${
+                  rule.enabled ? "text-[var(--taro-ink-muted)]" : "text-[var(--taro-ink-dim)]"
+                }`}
+              >
+                {rule.enabled ? "activa" : "off"}
+              </Mono>
+
               <button
                 onClick={() => handleToggle(rule)}
                 disabled={toggling.has(rule.id)}
-                className="flex-shrink-0 relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus-visible:outline-none disabled:opacity-50"
-                style={{ backgroundColor: rule.enabled ? "rgb(99 102 241)" : "rgb(75 85 99)" }}
                 title={rule.enabled ? "Deshabilitar regla" : "Habilitar regla"}
+                className={`relative inline-flex h-[20px] w-[36px] shrink-0 cursor-pointer items-center rounded-full transition-[background-color] duration-[250ms] disabled:cursor-not-allowed disabled:opacity-50 ${
+                  rule.enabled ? "bg-[var(--taro-brass)]" : "bg-[var(--taro-line-strong)]"
+                }`}
               >
                 <span
-                  className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow transition-transform ${
-                    rule.enabled ? "translate-x-4" : "translate-x-1"
+                  className={`inline-block h-[14px] w-[14px] rounded-full transition-transform duration-[250ms] ${
+                    rule.enabled
+                      ? "translate-x-[19px] bg-[var(--taro-brass-ink)]"
+                      : "translate-x-[3px] bg-[var(--taro-ink-dim)]"
                   }`}
                 />
               </button>
 
-              {/* Rule text */}
-              <p className={`flex-1 text-sm leading-relaxed ${rule.enabled ? "text-[var(--color-text)]" : "text-[var(--color-text-muted)]"}`}>
-                {rule.rule_text}
-              </p>
-
-              {/* Actions */}
-              <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+              <div className="flex shrink-0 items-center gap-1 opacity-0 transition-opacity duration-[250ms] group-hover:opacity-100">
                 <button
                   onClick={() => openEdit(rule)}
-                  className="p-1 text-[var(--color-text-muted)] hover:text-[var(--color-text)] transition-colors"
                   title="Editar regla"
+                  className="cursor-pointer p-1 text-[var(--taro-ink-dim)] transition-[color] duration-[250ms] hover:text-[var(--taro-ink)]"
                 >
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
                     <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
@@ -319,8 +316,8 @@ export function RuleList({
                 </button>
                 <button
                   onClick={() => setDeleteTarget(rule)}
-                  className="p-1 text-[var(--color-text-muted)] hover:text-red-400 transition-colors"
                   title="Eliminar regla"
+                  className="cursor-pointer p-1 text-[var(--taro-ink-dim)] transition-[color] duration-[250ms] hover:text-[var(--taro-incorrect-ink)]"
                 >
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
                     <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
@@ -395,8 +392,8 @@ export function RuleList({
           </>
         }
       >
-        <p className="text-sm text-[var(--color-text-muted)]">
-          ¿Estás seguro? Se eliminarán <strong className="text-[var(--color-text)]">{rules.length} regla{rules.length !== 1 ? "s" : ""}</strong>. Esta acción no se puede deshacer.
+        <p className="text-[14px] leading-[1.6] text-[var(--taro-ink-muted)]">
+          ¿Estás seguro? Se eliminarán <strong className="text-[var(--taro-ink)]">{rules.length} regla{rules.length !== 1 ? "s" : ""}</strong>. Esta acción no se puede deshacer.
         </p>
       </Modal>
 
@@ -412,11 +409,11 @@ export function RuleList({
           </>
         }
       >
-        <p className="text-sm text-[var(--color-text-muted)]">
+        <p className="text-[14px] leading-[1.6] text-[var(--taro-ink-muted)]">
           ¿Estás seguro de que quieres eliminar esta regla? Esta acción no se puede deshacer.
         </p>
         {deleteTarget && (
-          <div className="mt-3 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-2)] px-3 py-2 text-sm text-[var(--color-text)]">
+          <div className="mt-3 rounded-[var(--taro-radius-row)] border border-[var(--taro-line-strong)] bg-[var(--taro-raised)] px-3 py-2 text-[14px] leading-[1.6] text-[var(--taro-ink)]">
             {deleteTarget.rule_text}
           </div>
         )}

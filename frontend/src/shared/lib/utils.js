@@ -14,6 +14,12 @@ export function formatDuration(start, end) {
   return `${Math.floor(ms / 60000)}m ${Math.floor((ms % 60000) / 1000)}s`;
 }
 
+/** Fracción 0–1 a porcentaje redondeado. No vale para task.progress, que ya es 0–100. */
+export function formatScore(fraction) {
+  if (fraction == null || Number.isNaN(fraction)) return "—";
+  return `${Math.round(fraction * 100)}%`;
+}
+
 export function verdictColor(verdict) {
   const map = { pass: "success", fail: "danger", partial: "partial" };
   return map[verdict] ?? "muted";

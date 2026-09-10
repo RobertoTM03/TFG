@@ -37,7 +37,7 @@ export function TriggerValidation({ owner, repo }) {
         </svg>
         Iniciar validación
       </Button>
-      {error && <p className="text-xs text-red-400">{error}</p>}
+      {error && <p className="text-xs text-[var(--taro-incorrect-ink)]">{error}</p>}
     </div>
   );
 }

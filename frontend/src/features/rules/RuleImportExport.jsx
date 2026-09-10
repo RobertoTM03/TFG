@@ -100,21 +100,21 @@ export function RuleImportExport({ owner, repo, rules, onImported }) {
       </div>
 
       {/* Feedback */}
-      {result?.error && <p className="text-xs text-red-400">{result.error}</p>}
+      {result?.error && <p className="text-xs text-[var(--taro-incorrect-ink)]">{result.error}</p>}
       {result && !result.error && (
         <div className="text-xs space-y-0.5">
-          <p className="text-emerald-400">
+          <p className="text-[var(--taro-correct-ink)]">
             {result.added} regla{result.added !== 1 ? "s" : ""} importada
             {result.added !== 1 ? "s" : ""}.
           </p>
           {result.skipped > 0 && (
-            <p className="text-amber-400">
+            <p className="text-[var(--taro-partial-ink)]">
               {result.skipped} omitida{result.skipped !== 1 ? "s" : ""} por
               límite de {MAX_RULES}.
             </p>
           )}
           {result.errors.map((e, i) => (
-            <p key={i} className="text-red-400">
+            <p key={i} className="text-[var(--taro-incorrect-ink)]">
               {e}
             </p>
           ))}

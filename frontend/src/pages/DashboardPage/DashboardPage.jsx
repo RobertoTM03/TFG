@@ -7,22 +7,28 @@ import { fetchTasks } from "@/entities/task/api";
 import { TaskTable } from "@/widgets/TaskTable/TaskTable";
 import { PageLoader } from "@/shared/ui/Spinner";
 import { Button } from "@/shared/ui/Button";
+import { Card, CardGrid, CardCell } from "@/shared/ui/Card";
+import { PageHeader, SectionTitle, Eyebrow, Body, Mono } from "@/shared/ui/Typography";
 
-function StatCard({ label, value, sub, to }) {
+function Stat({ label, value, sub, to }) {
   const inner = (
-    <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5 hover:border-indigo-500/40 transition-colors">
-      <p className="text-3xl font-bold text-[var(--color-text)] tabular-nums">
+    <CardCell interactive={!!to} className="h-full">
+      <Mono className="block text-[30px] leading-none text-[var(--taro-ink)]">
         {value ?? "—"}
+      </Mono>
+      <Eyebrow className="mt-3 block">{label}</Eyebrow>
+      <p className="mt-1 min-h-[20px] text-[12px] leading-[20px] text-[var(--taro-ink-dim)]">
+        {sub ?? ""}
       </p>
-      <p className="mt-1 text-sm font-medium text-[var(--color-text)]">
-        {label}
-      </p>
-      {sub && (
-        <p className="mt-0.5 text-xs text-[var(--color-text-muted)]">{sub}</p>
-      )}
-    </div>
+    </CardCell>
   );
-  return to ? <Link to={to}>{inner}</Link> : inner;
+  return to ? (
+    <Link to={to} className="hover:no-underline">
+      {inner}
+    </Link>
+  ) : (
+    inner
+  );
 }
 
 export function DashboardPage() {
@@ -60,66 +66,59 @@ export function DashboardPage() {
       : null;
 
   return (
-    <div className="flex flex-col gap-8 p-6 max-w-5xl mx-auto w-full">
-      <div>
-        <h1 className="text-2xl font-bold text-[var(--color-text)]">
-          Bienvenido, {user?.github_login}
-        </h1>
-        <p className="mt-1 text-sm text-[var(--color-text-muted)]">
-          Resumen de tu actividad en CodeReview AI
-        </p>
-      </div>
+    <div className="mx-auto flex w-full max-w-5xl flex-col gap-8 px-8 py-10">
+      <PageHeader eyebrow="Resumen" title={`Hola, ${user?.github_login ?? ""}`}>
+        <Body muted className="mt-3">
+          Tu actividad reciente en Taro.
+        </Body>
+      </PageHeader>
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <StatCard
+      <CardGrid columns={2}>
+        <Stat
           label="Repositorios"
           value={repos.length || null}
           sub="con la GitHub App"
           to="/repos"
         />
-        <StatCard
+        <Stat
           label="Evaluaciones totales"
           value={total || null}
           sub="en todos los repos"
           to="/tasks"
         />
-        <StatCard
+        <Stat
           label="Porcentaje completado"
           value={completedPct != null ? `${completedPct}%` : null}
           sub={`sobre las últimas ${allTasks.length}`}
         />
-        <StatCard
+        <Stat
           label="Pendiente de ejecución"
           value={pendingCount}
           sub="en curso o en cola"
         />
-      </div>
+      </CardGrid>
 
       {allTasks.length > 0 && <ActivityChart tasks={allTasks} repos={repos} />}
 
       <div>
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-base font-semibold text-[var(--color-text)]">
-            Últimas evaluaciones
-          </h2>
-          <Link to="/tasks">
+        <div className="mb-5 flex items-center justify-between gap-4">
+          <SectionTitle>Últimas evaluaciones</SectionTitle>
+          <Link to="/tasks" className="hover:no-underline">
             <Button variant="ghost" size="sm">
-              Ver todas →
+              Ver todas
             </Button>
           </Link>
         </div>
         {tasks?.items?.length ? (
           <TaskTable tasks={tasks.items} />
         ) : (
-          <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-8 text-center">
-            <p className="text-sm text-[var(--color-text-muted)]">
+          <Card className="text-center">
+            <Body muted>
               No hay evaluaciones todavía.{" "}
-              <Link to="/repos" className="text-indigo-400 hover:underline">
-                Ve a un repositorio
-              </Link>{" "}
-              para iniciar la primera.
-            </p>
-          </div>
+              <Link to="/repos">Ve a un repositorio</Link> para iniciar la
+              primera.
+            </Body>
+          </Card>
         )}
       </div>
     </div>

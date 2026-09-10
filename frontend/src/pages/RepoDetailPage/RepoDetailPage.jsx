@@ -10,6 +10,8 @@ import { RepoSettingsForm } from "@/features/settings/RepoSettingsForm";
 import { TriggerValidation } from "@/features/tasks/TriggerValidation";
 import { PageLoader } from "@/shared/ui/Spinner";
 import { Badge } from "@/shared/ui/Badge";
+import { Card } from "@/shared/ui/Card";
+import { PageTitle, SectionTitle, Eyebrow, Body, Mono } from "@/shared/ui/Typography";
 import { clsx } from "@/shared/lib/utils";
 
 const TABS = ["Reglas", "Evaluaciones", "Colaboradores", "Configuración"];
@@ -69,49 +71,44 @@ export function RepoDetailPage() {
   if (loading) return <PageLoader />;
 
   return (
-    <div className="flex flex-col gap-0 p-6 max-w-5xl mx-auto w-full">
+    <div className="mx-auto flex w-full max-w-5xl flex-col px-8 py-10">
       {/* Breadcrumb */}
-      <nav className="flex items-center gap-2 text-sm text-[var(--color-text-muted)] mb-5">
-        <Link
-          to="/repos"
-          className="hover:text-[var(--color-text)] transition-colors"
-        >
+      <nav className="mb-5 flex items-center gap-2 text-[13px] text-[var(--taro-ink-dim)]">
+        <Link to="/repos" className="text-[var(--taro-ink-dim)] transition-[color] duration-[250ms] hover:text-[var(--taro-ink)] hover:no-underline">
           Repositorios
         </Link>
         <span>/</span>
-        <span>{owner}</span>
+        <Mono className="text-[12.5px] text-[var(--taro-ink-dim)]">{owner}</Mono>
         <span>/</span>
-        <span className="text-[var(--color-text)] font-medium">{repo}</span>
+        <Mono className="text-[12.5px] text-[var(--taro-ink)]">{repo}</Mono>
       </nav>
 
       {/* Header */}
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <div className="flex items-center gap-2">
-            <h1 className="text-2xl font-bold text-[var(--color-text)]">
-              {repo}
-            </h1>
+      <div className="mb-8 flex flex-wrap items-center justify-between gap-4">
+        <div className="min-w-0">
+          <div className="flex items-center gap-3">
+            <PageTitle className="truncate">{repo}</PageTitle>
             <a
               href={`https://github.com/${owner}/${repo}`}
               target="_blank"
               rel="noreferrer"
               title="Ver en GitHub"
-              className="text-[var(--color-text-muted)] hover:text-indigo-400 transition-colors"
+              className="text-[var(--taro-ink-dim)] transition-[color] duration-[250ms] hover:text-[var(--taro-brass)]"
             >
               <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M12 0C5.37 0 0 5.37 0 12c0 5.3 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61-.546-1.385-1.335-1.755-1.335-1.755-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23A11.52 11.52 0 0112 5.803c1.02.005 2.047.138 3.006.404 2.29-1.552 3.297-1.23 3.297-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 21.795 24 17.295 24 12c0-6.63-5.37-12-12-12z"/>
               </svg>
             </a>
           </div>
-          <p className="mt-1 text-sm text-[var(--color-text-muted)]">
+          <Mono className="mt-2 block text-[12.5px] text-[var(--taro-ink-dim)]">
             {owner}/{repo}
-          </p>
+          </Mono>
         </div>
         <TriggerValidation owner={owner} repo={repo} />
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-0 border-b border-[var(--color-border)] mb-6">
+      <div className="mb-8 flex gap-6 border-b border-[var(--taro-line)]">
         {TABS.map((t) => (
           <button
             key={t}
@@ -121,30 +118,24 @@ export function RepoDetailPage() {
               setTab(t);
             }}
             className={clsx(
-              "px-4 py-2.5 text-sm font-medium border-b-2 transition-colors",
+              "-mb-px flex cursor-pointer items-center gap-2 border-b-2 pb-2.5 text-[14px] whitespace-nowrap",
+              "transition-[color,border-color] duration-[250ms]",
               tab === t
-                ? "border-indigo-500 text-indigo-400"
-                : "border-transparent text-[var(--color-text-muted)] hover:text-[var(--color-text)]",
+                ? "border-[var(--taro-brass)] text-[var(--taro-ink)]"
+                : "border-transparent text-[var(--taro-ink-dim)] hover:text-[var(--taro-ink)]",
             )}
           >
             {t}
             {t === "Reglas" && (
-              <Badge
-                color={rules.length >= MAX_RULES ? "warning" : "muted"}
-                className="ml-2"
-              >
+              <Badge kind="tone" value={rules.length >= MAX_RULES ? "partial" : "neutral"}>
                 {rules.length}/{MAX_RULES}
               </Badge>
             )}
             {t === "Evaluaciones" && tasks?.total > 0 && (
-              <Badge color="muted" className="ml-2">
-                {tasks.total}
-              </Badge>
+              <Badge kind="tone" value="neutral">{tasks.total}</Badge>
             )}
             {t === "Colaboradores" && contributors.length > 0 && (
-              <Badge color="muted" className="ml-2">
-                {contributors.length}
-              </Badge>
+              <Badge kind="tone" value="neutral">{contributors.length}</Badge>
             )}
           </button>
         ))}
@@ -169,32 +160,32 @@ export function RepoDetailPage() {
           {tasks?.items?.length ? (
             <TaskTable tasks={tasks.items} />
           ) : (
-            <div className="rounded-xl border border-dashed border-[var(--color-border)] p-10 text-center">
-              <p className="text-sm text-[var(--color-text-muted)]">
+            <Card className="text-center">
+              <Body muted>
                 No hay evaluaciones para este repositorio. Inicia una con el
                 botón de arriba.
-              </p>
-            </div>
+              </Body>
+            </Card>
           )}
         </div>
       )}
 
       {tab === "Colaboradores" && (
         <div>
-          <p className="mb-4 text-sm text-[var(--color-text-muted)]">
+          <Body muted className="mb-5">
             Colaboradores que han abierto pull requests en este repositorio.
-          </p>
+          </Body>
           <ContributorTable contributors={contributors} loading={contributorsLoading} />
         </div>
       )}
 
       {tab === "Configuración" && (
-        <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5">
-          <h2 className="text-sm font-semibold text-[var(--color-text)] mb-4">
+        <Card>
+          <SectionTitle className="mb-6">
             Configuración del repositorio
-          </h2>
+          </SectionTitle>
           <RepoSettingsForm owner={owner} repo={repo} />
-        </div>
+        </Card>
       )}
     </div>
   );

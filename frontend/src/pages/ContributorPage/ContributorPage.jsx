@@ -18,33 +18,33 @@ function VerdictBar({ passCount, partialCount, failCount }) {
   const fPct = (failCount / total) * 100;
   return (
     <div className="mt-2">
-      <div className="flex h-2 w-full overflow-hidden rounded-full bg-[var(--color-surface-2)]">
+      <div className="flex h-2 w-full overflow-hidden rounded-full bg-[var(--taro-raised)]">
         {pPct > 0 && (
-          <div className="h-full bg-[var(--color-success)]" style={{ width: `${pPct}%` }} />
+          <div className="h-full bg-[var(--taro-correct)]" style={{ width: `${pPct}%` }} />
         )}
         {tPct > 0 && (
-          <div className="h-full bg-amber-400" style={{ width: `${tPct}%` }} />
+          <div className="h-full bg-[var(--taro-partial)]" style={{ width: `${tPct}%` }} />
         )}
         {fPct > 0 && (
-          <div className="h-full bg-[var(--color-danger)]" style={{ width: `${fPct}%` }} />
+          <div className="h-full bg-[var(--taro-incorrect)]" style={{ width: `${fPct}%` }} />
         )}
       </div>
-      <div className="mt-1.5 flex gap-3 text-xs text-[var(--color-text-muted)]">
+      <div className="mt-1.5 flex gap-3 text-xs text-[var(--taro-ink-muted)]">
         {passCount > 0 && (
           <span className="flex items-center gap-1">
-            <span className="h-2 w-2 rounded-full bg-[var(--color-success)]" />
+            <span className="h-2 w-2 rounded-full bg-[var(--taro-correct)]" />
             {passCount} superadas
           </span>
         )}
         {partialCount > 0 && (
           <span className="flex items-center gap-1">
-            <span className="h-2 w-2 rounded-full bg-amber-400" />
+            <span className="h-2 w-2 rounded-full bg-[var(--taro-partial)]" />
             {partialCount} parciales
           </span>
         )}
         {failCount > 0 && (
           <span className="flex items-center gap-1">
-            <span className="h-2 w-2 rounded-full bg-[var(--color-danger)]" />
+            <span className="h-2 w-2 rounded-full bg-[var(--taro-incorrect)]" />
             {failCount} fallidas
           </span>
         )}
@@ -84,18 +84,18 @@ export function ContributorPage() {
     <div className="flex flex-col gap-6 p-6 max-w-5xl mx-auto w-full">
       {/* Header */}
       <div className="flex items-center gap-4">
-        <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-indigo-600/20 text-xl font-bold text-indigo-400">
+        <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-[var(--taro-inset)] text-xl font-bold text-[var(--taro-brass)]">
           {githubLogin.slice(0, 2).toUpperCase()}
         </div>
         <div>
-          <h1 className="text-2xl font-bold text-[var(--color-text)]">
+          <h1 className="text-2xl font-bold text-[var(--taro-ink)]">
             {githubLogin}
           </h1>
           <a
             href={`https://github.com/${githubLogin}`}
             target="_blank"
             rel="noreferrer"
-            className="text-sm text-indigo-400 hover:text-indigo-300 transition-colors"
+            className="text-sm text-[var(--taro-brass)] hover:text-[var(--taro-brass)] transition-colors"
           >
             Ver perfil en GitHub →
           </a>
@@ -103,7 +103,7 @@ export function ContributorPage() {
         <div className="ml-auto">
           <Link
             to="/contributors"
-            className="text-xs text-[var(--color-text-muted)] hover:text-[var(--color-text)] transition-colors"
+            className="text-xs text-[var(--taro-ink-muted)] hover:text-[var(--taro-ink)] transition-colors"
           >
             ← Todos los colaboradores
           </Link>
@@ -112,29 +112,29 @@ export function ContributorPage() {
 
       {/* Stats */}
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
-        <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4">
-          <p className="text-xs text-[var(--color-text-muted)] uppercase tracking-wider">
+        <div className="rounded-xl border border-[var(--taro-line)] bg-[var(--taro-surface)] p-4">
+          <p className="text-xs text-[var(--taro-ink-muted)] uppercase tracking-wider">
             Envíos totales
           </p>
-          <p className="mt-1 text-3xl font-bold text-[var(--color-text)]">
+          <p className="mt-1 text-3xl font-bold text-[var(--taro-ink)]">
             {total}
           </p>
         </div>
-        <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4">
-          <p className="text-xs text-[var(--color-text-muted)] uppercase tracking-wider">
+        <div className="rounded-xl border border-[var(--taro-line)] bg-[var(--taro-surface)] p-4">
+          <p className="text-xs text-[var(--taro-ink-muted)] uppercase tracking-wider">
             Completados
           </p>
-          <p className="mt-1 text-3xl font-bold text-[var(--color-success)]">
+          <p className="mt-1 text-3xl font-bold text-[var(--taro-correct)]">
             {summary?.completed_submissions ??
               data?.items?.filter((t) => t.status === "completed").length ??
               0}
           </p>
         </div>
-        <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4">
-          <p className="text-xs text-[var(--color-text-muted)] uppercase tracking-wider">
+        <div className="rounded-xl border border-[var(--taro-line)] bg-[var(--taro-surface)] p-4">
+          <p className="text-xs text-[var(--taro-ink-muted)] uppercase tracking-wider">
             Repositorios
           </p>
-          <p className="mt-1 text-3xl font-bold text-[var(--color-text)]">
+          <p className="mt-1 text-3xl font-bold text-[var(--taro-ink)]">
             {summary?.repos?.length ?? repoSet.size}
           </p>
         </div>
@@ -143,7 +143,7 @@ export function ContributorPage() {
       {/* Breakdown por repositorio */}
       {summary?.repos?.length > 0 && (
         <div>
-          <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-[var(--color-text-muted)]">
+          <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-[var(--taro-ink-muted)]">
             Resultados por repositorio
           </h2>
           <div className="grid gap-4 sm:grid-cols-2">
@@ -153,14 +153,14 @@ export function ContributorPage() {
               return (
                 <div
                   key={repo.repository_full_name}
-                  className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4"
+                  className="rounded-xl border border-[var(--taro-line)] bg-[var(--taro-surface)] p-4"
                 >
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0">
-                      <p className="truncate text-sm font-medium text-[var(--color-text)]">
+                      <p className="truncate text-sm font-medium text-[var(--taro-ink)]">
                         {repo.repository_full_name}
                       </p>
-                      <p className="mt-0.5 text-xs text-[var(--color-text-muted)]">
+                      <p className="mt-0.5 text-xs text-[var(--taro-ink-muted)]">
                         {repo.total_submissions} envío
                         {repo.total_submissions !== 1 ? "s" : ""} ·{" "}
                         {repo.completed_submissions} completado
@@ -169,13 +169,13 @@ export function ContributorPage() {
                     </div>
                     {total_rules > 0 && (
                       <div className="shrink-0 text-right">
-                        <span className="text-xl font-bold text-[var(--color-text)] tabular-nums">
+                        <span className="text-xl font-bold text-[var(--taro-ink)] tabular-nums">
                           {repo.pass_count}
-                          <span className="text-sm font-normal text-[var(--color-text-muted)]">
+                          <span className="text-sm font-normal text-[var(--taro-ink-muted)]">
                             /{total_rules}
                           </span>
                         </span>
-                        <p className="text-xs text-[var(--color-text-muted)]">
+                        <p className="text-xs text-[var(--taro-ink-muted)]">
                           reglas superadas
                         </p>
                       </div>
@@ -192,7 +192,7 @@ export function ContributorPage() {
                     <div className="mt-2">
                       <Link
                         to={`/tasks/${repo.best_task_id}`}
-                        className="text-xs text-indigo-400 hover:text-indigo-300 transition-colors"
+                        className="text-xs text-[var(--taro-brass)] hover:text-[var(--taro-brass)] transition-colors"
                       >
                         {repo.best_pr_number
                           ? `PR #${repo.best_pr_number}`
@@ -202,7 +202,7 @@ export function ContributorPage() {
                     </div>
                   )}
 
-                  <p className="mt-2 text-xs text-[var(--color-text-muted)]">
+                  <p className="mt-2 text-xs text-[var(--taro-ink-muted)]">
                     Última contribución: {formatDate(repo.last_submitted_at)}
                   </p>
                 </div>
@@ -214,7 +214,7 @@ export function ContributorPage() {
 
       {/* Historial de evaluaciones */}
       <div>
-        <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-[var(--color-text-muted)]">
+        <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-[var(--taro-ink-muted)]">
           Historial de evaluaciones
         </h2>
 
@@ -229,7 +229,7 @@ export function ContributorPage() {
 
             {data && data.total_pages > 1 && (
               <div className="mt-4 flex items-center justify-between">
-                <p className="text-xs text-[var(--color-text-muted)]">
+                <p className="text-xs text-[var(--taro-ink-muted)]">
                   Página {data.page} de {data.total_pages} · {data.total}{" "}
                   evaluaciones
                 </p>

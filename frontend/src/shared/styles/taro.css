@@ -1,0 +1,79 @@
+:root {
+  /* Grounds */
+  --taro-bg: #131110;          /* page ground */
+  --taro-surface: #1B1917;     /* card / panel */
+  --taro-raised: #221F1C;      /* row inside a panel, hover ground */
+  --taro-inset: #17140F;       /* badge well, code ground */
+
+  /* Lines */
+  --taro-line: #262220;        /* default border, dividers */
+  --taro-line-strong: #302B27; /* border on a raised row */
+  --taro-line-brass: #4A3E28;  /* brass-tinted border, logo badge */
+  --taro-line-quiet: #322C27;  /* secondary button border */
+  --taro-line-hover: #6A5C43;  /* secondary button border, hover */
+
+  /* Ink */
+  --taro-ink: #F4EFE7;         /* primary text */
+  --taro-ink-muted: #A79E92;   /* body copy, secondary */
+  --taro-ink-dim: #948B7C;     /* meta, timestamps — 5.65:1, do not go dimmer */
+  --taro-ink-faint: #6A6157;   /* disabled only, never body text */
+
+  /* Accent */
+  --taro-brass: #D9A54C;
+  --taro-brass-ink: #17140F;   /* text on a brass fill */
+
+  /* Status: correct */
+  --taro-correct: #7ED0A4;        /* border, bar segment */
+  --taro-correct-ink: #8FDDB1;    /* text on dark */
+  --taro-correct-bg: #17251D;
+  --taro-correct-line: #3F5F4C;
+
+  /* Status: partial */
+  --taro-partial: #F0B25B;
+  --taro-partial-ink: #F0B25B;
+  --taro-partial-bg: #2B2216;
+  --taro-partial-line: #5B4526;
+
+  /* Status: incorrect */
+  --taro-incorrect: #FF8A78;
+  --taro-incorrect-ink: #FF8A78;
+  --taro-incorrect-bg: #2C1B18;
+  --taro-incorrect-line: #5E332C;
+
+  /* Type */
+  --taro-font-display: "Space Grotesk", system-ui, sans-serif;
+  --taro-font-body: "Hanken Grotesk", system-ui, sans-serif;
+  --taro-font-mono: "JetBrains Mono", ui-monospace, monospace;
+
+  /* Radius */
+  --taro-radius-control: 8px;  /* buttons, inputs, badges */
+  --taro-radius-row: 10px;     /* list rows */
+  --taro-radius-card: 14px;    /* cards, panels */
+  --taro-radius-panel: 16px;   /* large containers */
+
+  /* Motion — hover only, nothing else animates */
+  --taro-transition: 0.25s;
+}
+
+/* Fonts: add to index.html <head>
+   <link rel="preconnect" href="https://fonts.googleapis.com">
+   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+   <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Hanken+Grotesk:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+*/
+
+body {
+  background: var(--taro-bg);
+  color: var(--taro-ink);
+  font-family: var(--taro-font-body);
+  -webkit-font-smoothing: antialiased;
+}
+
+a { color: var(--taro-brass); text-decoration: none; }
+a:hover { color: var(--taro-ink); text-decoration: underline; }
+::selection { background: #453A25; }
+
+/* Añadidos en el port a React: valores que pide el handoff y que el set extraído no traía. */
+:root {
+  --taro-brass-quiet: #453A25;
+  --taro-scrim: rgba(11, 9, 8, 0.72);
+}

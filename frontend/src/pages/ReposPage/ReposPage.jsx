@@ -4,6 +4,8 @@ import { getInstallUrl } from "@/entities/repo/model";
 import { RepoCard } from "@/widgets/RepoCard/RepoCard";
 import { PageLoader } from "@/shared/ui/Spinner";
 import { EmptyState } from "@/shared/ui/EmptyState";
+import { Button } from "@/shared/ui/Button";
+import { PageHeader, Body } from "@/shared/ui/Typography";
 
 const GITHUB_ICON = (
   <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor">
@@ -48,27 +50,28 @@ const [loading, setLoading] = useState(true);
   const installUrl = appInfo?.app_slug ? getInstallUrl(appInfo.app_slug) : null;
 
   return (
-    <div className="flex flex-col gap-6 p-6 max-w-4xl mx-auto w-full">
-      {/* Header */}
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-[var(--color-text)]">Repositorios</h1>
-          <p className="mt-1 text-sm text-[var(--color-text-muted)]">
-            Gestiona los repositorios de GitHub conectados a CodeCheck
-          </p>
-        </div>
-        {installUrl && (
-          <a href={installUrl} target="_blank" rel="noopener noreferrer">
-            <button className="flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-500 flex-shrink-0">
+    <div className="mx-auto flex w-full max-w-5xl flex-col gap-8 px-8 py-10">
+      <PageHeader
+        eyebrow="Conectados"
+        title="Repositorios"
+        action={
+          installUrl ? (
+            <a href={installUrl} target="_blank" rel="noopener noreferrer" className="hover:no-underline">
+              <Button variant="github" size="sm" className="no-underline">
               {GITHUB_ICON}
               Instalar GitHub App
-            </button>
-          </a>
-        )}
-      </div>
+            </Button>
+            </a>
+          ) : null
+        }
+      >
+        <Body muted className="mt-3">
+          Repositorios de GitHub conectados a Taro.
+        </Body>
+      </PageHeader>
 
       {error && (
-        <div className="rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-400">
+        <div className="rounded-[var(--taro-radius-row)] border border-[var(--taro-incorrect-line)] bg-[var(--taro-incorrect-bg)] px-4 py-3 text-[13.5px] text-[var(--taro-incorrect-ink)]">
           {error}
         </div>
       )}
@@ -79,18 +82,21 @@ const [loading, setLoading] = useState(true);
           description="Instala la GitHub App en tus repositorios para empezar a usarlos."
           action={
             installUrl ? (
-              <a href={installUrl} target="_blank" rel="noopener noreferrer">
-                <button className="flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-500">
+              <a href={installUrl} target="_blank" rel="noopener noreferrer" className="hover:no-underline">
+                <Button variant="github" size="sm">
                   {GITHUB_ICON}
                   Instalar GitHub App
-                </button>
+                </Button>
               </a>
             ) : null
           }
         />
       ) : (
         <>
-          <div className="flex flex-col gap-3">
+          <div
+            className="grid gap-4"
+            style={{ gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))" }}
+          >
             {repos.map((repo) => (
               <RepoCard key={repo.full_name} repo={repo} />
             ))}

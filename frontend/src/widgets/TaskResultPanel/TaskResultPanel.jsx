@@ -1,270 +1,158 @@
 import { useState } from "react";
-import { Badge } from "@/shared/ui/Badge";
-import { verdictColor } from "@/shared/lib/utils";
+import { Card, CardGrid, CardCell } from "@/shared/ui/Card";
+import { Eyebrow, Body, Mono } from "@/shared/ui/Typography";
+import { statusStyle, statusLabel } from "@/shared/lib/status";
+import { formatScore } from "@/shared/lib/utils";
 import { computeOverallScore, verdictCounts } from "@/entities/task/model";
 
-const VERDICT_LABELS = {
-  pass: "Correcto",
-  fail: "Incorrecto",
-  partial: "Parcial",
-};
-const VERDICT_ICONS = {
-  pass: "✓",
-  fail: "✗",
-  partial: "~",
-};
-
-function ScoreCircle({ score }) {
-  if (score == null) return null;
-  const pct = Math.round(score * 100);
-  const color =
-    pct >= 80
-      ? "text-emerald-400"
-      : pct >= 60
-        ? "text-amber-400"
-        : "text-red-400";
+function VerdictLabel({ verdict }) {
+  const { ink } = statusStyle("verdict", verdict);
   return (
-    <div className={`text-4xl font-bold tabular-nums ${color}`}>
-      {pct}
-      <span className="text-xl">%</span>
+    <Mono
+      style={{ color: `var(${ink})` }}
+      className="text-[10.5px] font-semibold uppercase tracking-[0.16em]"
+    >
+      {statusLabel("verdict", verdict)}
+    </Mono>
+  );
+}
+
+function CrossCheckRow({ label, model, verdict, children }) {
+  return (
+    <div className="flex flex-col gap-2 border-t border-[var(--taro-line)] pt-4 first:border-t-0 first:pt-0">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <span className="flex flex-wrap items-center gap-2">
+          <Eyebrow>{label}</Eyebrow>
+          {model && (
+            <Mono className="text-[11.5px] text-[var(--taro-ink-muted)]">
+              {model}
+            </Mono>
+          )}
+        </span>
+        {verdict && <VerdictLabel verdict={verdict} />}
+      </div>
+      {children && (
+        <Body muted className="min-h-[22px] text-[13.5px]">
+          {children}
+        </Body>
+      )}
     </div>
   );
 }
 
-function ValidationCard({ v, index }) {
+function CrossCheck({ cc }) {
+  const tone = cc.agreement ? "correct" : "partial";
+  const { ink, ground } = statusStyle("tone", tone);
+
+  return (
+    <div className="rounded-[var(--taro-radius-row)] bg-[var(--taro-raised)] p-5">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <Eyebrow>Verificación cruzada</Eyebrow>
+        <span
+          style={{ color: `var(${ink})`, background: `var(${ground})` }}
+          className="inline-flex items-center whitespace-nowrap rounded-[var(--taro-radius-control)] px-[10px] py-[4px] font-[family-name:var(--taro-font-mono)] text-[11px] font-medium leading-none"
+        >
+          {cc.agreement
+            ? "Los modelos coinciden"
+            : "Sin acuerdo · discriminador usado"}
+        </span>
+      </div>
+
+      <div className="flex flex-col gap-4">
+        <CrossCheckRow
+          label="primario"
+          model={cc.primary_model}
+          verdict={cc.primary_verdict}
+        >
+          {cc.primary_explanation}
+        </CrossCheckRow>
+
+        <CrossCheckRow
+          label="secundario"
+          model={cc.secondary_model}
+          verdict={cc.secondary_verdict}
+        >
+          {cc.secondary_explanation}
+        </CrossCheckRow>
+
+        {cc.discriminator_used && (
+          <CrossCheckRow label="discriminador" model={cc.discriminator_model}>
+            {cc.discriminator_reasoning}
+          </CrossCheckRow>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function ValidationCard({ v }) {
   const [expanded, setExpanded] = useState(false);
   const verdict = v.evaluation?.verdict;
   const explanation = v.evaluation?.explanation;
   const suggestions = v.evaluation?.suggestions ?? [];
-  const hasCrossCheck = !!v.cross_check;
+  const files = v.related_files ?? [];
+  const cc = v.cross_check;
+
+  const { accent } = statusStyle("verdict", verdict);
 
   return (
-    <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] overflow-hidden">
+    <Card accent={accent} flush className="overflow-hidden">
       <button
-        className="w-full flex items-start gap-4 px-5 py-4 text-left hover:bg-[var(--color-surface-2)] transition-colors"
         onClick={() => setExpanded((p) => !p)}
+        className="flex w-full cursor-pointer items-start justify-between gap-6 px-[26px] py-[22px] text-left transition-[background-color] duration-[250ms] hover:bg-[var(--taro-raised)]"
       >
-        <div
-          className={`flex-shrink-0 mt-0.5 h-6 w-6 rounded-full flex items-center justify-center text-xs font-bold ${
-            verdict === "pass"
-              ? "bg-emerald-500/20 text-emerald-400"
-              : verdict === "fail"
-                ? "bg-red-500/20 text-red-400"
-                : "bg-orange-500/20 text-orange-400"
-          }`}
-        >
-          {VERDICT_ICONS[verdict]}
-        </div>
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-xs font-semibold text-[var(--color-text-muted)]">
-              Regla {index + 1}
-            </span>
-            <Badge color={verdictColor(verdict)}>
-              {VERDICT_LABELS[verdict] ?? verdict}
-            </Badge>
-            {hasCrossCheck && <Badge color="primary">cross-check</Badge>}
-            {v.cross_check?.discriminator_used && (
-              <Badge color="warning">discriminador</Badge>
-            )}
-          </div>
-          <p className="mt-1 text-sm font-medium text-[var(--color-text)] line-clamp-2">
-            {v.rule}
-          </p>
-        </div>
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          className={`h-4 w-4 flex-shrink-0 text-[var(--color-text-muted)] transition-transform mt-1 ${
-            expanded ? "rotate-180" : ""
-          }`}
-          viewBox="0 0 20 20"
-          fill="currentColor"
-        >
-          <path
-            fillRule="evenodd"
-            d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"
-            clipRule="evenodd"
-          />
-        </svg>
+        <Body className="flex-1">{v.rule}</Body>
+        <span className="shrink-0 pt-1">
+          <VerdictLabel verdict={verdict} />
+        </span>
       </button>
 
       {expanded && (
-        <div className="border-t border-[var(--color-border)] px-5 py-4 space-y-4">
-          {/* Rule text */}
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-wider text-[var(--color-text-muted)] mb-1">
-              Regla
-            </p>
-            <p className="text-sm text-[var(--color-text)]">{v.rule}</p>
-          </div>
+        <div className="flex flex-col gap-6 border-t border-[var(--taro-line)] px-[26px] py-[22px]">
+          {explanation && <Body muted>{explanation}</Body>}
 
-          {/* Explanation */}
-          {explanation && (
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-wider text-[var(--color-text-muted)] mb-1">
-                Explicación
-              </p>
-              <p className="text-sm text-[var(--color-text)] leading-relaxed">
-                {explanation}
-              </p>
-            </div>
-          )}
-
-          {/* Suggestions */}
           {suggestions.length > 0 && (
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-wider text-[var(--color-text-muted)] mb-2">
-                Sugerencias
-              </p>
-              <ul className="space-y-1">
+            <div className="flex flex-col gap-2">
+              <Eyebrow>Sugerencias</Eyebrow>
+              <ul className="flex flex-col gap-2">
                 {suggestions.map((s, i) => (
-                  <li
-                    key={i}
-                    className="flex items-start gap-2 text-sm text-[var(--color-text)]"
-                  >
-                    <span className="text-indigo-400 mt-0.5">•</span>
-                    {s}
+                  <li key={i} className="flex items-start gap-3">
+                    <span className="mt-[9px] h-[3px] w-[3px] shrink-0 rounded-full bg-[var(--taro-brass)]" />
+                    <Body muted className="flex-1">
+                      {s}
+                    </Body>
                   </li>
                 ))}
               </ul>
             </div>
           )}
 
-          {/* Cross-check detail */}
-          {hasCrossCheck && (
-            <div className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-2)] p-4 space-y-4">
-              <p className="text-xs font-semibold uppercase tracking-wider text-[var(--color-text-muted)]">
-                Verificación cruzada
-              </p>
-
-              {/* Primary / Secondary */}
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <p className="text-xs text-[var(--color-text-muted)] mb-1">
-                    Primario
-                    {v.cross_check.primary_model && (
-                      <span className="ml-1 font-mono">
-                        ({v.cross_check.primary_model})
-                      </span>
-                    )}
-                  </p>
-                  <Badge color={verdictColor(v.cross_check.primary_verdict)}>
-                    {VERDICT_LABELS[v.cross_check.primary_verdict] ??
-                      v.cross_check.primary_verdict}
-                  </Badge>
-                  <p className="mt-1.5 text-xs text-[var(--color-text-muted)] line-clamp-3">
-                    {v.cross_check.primary_explanation}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-xs text-[var(--color-text-muted)] mb-1">
-                    Secundario
-                    {v.cross_check.secondary_model && (
-                      <span className="ml-1 font-mono">
-                        ({v.cross_check.secondary_model})
-                      </span>
-                    )}
-                  </p>
-                  <Badge color={verdictColor(v.cross_check.secondary_verdict)}>
-                    {VERDICT_LABELS[v.cross_check.secondary_verdict] ??
-                      v.cross_check.secondary_verdict}
-                  </Badge>
-                  <p className="mt-1.5 text-xs text-[var(--color-text-muted)] line-clamp-3">
-                    {v.cross_check.secondary_explanation}
-                  </p>
-                </div>
-              </div>
-
-              {/* Agreement / Discriminator status */}
-              <div className="flex items-center gap-2 text-xs text-[var(--color-text-muted)]">
-                <span>
-                  Acuerdo:{" "}
-                  <strong
-                    className={
-                      v.cross_check.agreement
-                        ? "text-emerald-400"
-                        : "text-amber-400"
-                    }
-                  >
-                    {v.cross_check.agreement ? "Sí" : "No"}
-                  </strong>
-                </span>
-                <span>·</span>
-                <span>
-                  Discriminador:{" "}
-                  <strong
-                    className={
-                      v.cross_check.discriminator_used
-                        ? "text-amber-400"
-                        : "text-[var(--color-text)]"
-                    }
-                  >
-                    {v.cross_check.discriminator_used ? "Activado" : "No usado"}
-                  </strong>
-                </span>
-                {v.cross_check.discriminator_model && (
-                  <>
-                    <span>·</span>
-                    <span className="font-mono">
-                      {v.cross_check.discriminator_model}
-                    </span>
-                  </>
-                )}
-              </div>
-
-              {/* Discriminator reasoning */}
-              {v.cross_check.discriminator_reasoning && (
-                <div>
-                  <p className="text-xs text-[var(--color-text-muted)] mb-1">
-                    Razonamiento del discriminador
-                  </p>
-                  <p className="text-xs text-[var(--color-text)] leading-relaxed">
-                    {v.cross_check.discriminator_reasoning}
-                  </p>
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Related files */}
-          {v.related_files?.length > 0 && (
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-wider text-[var(--color-text-muted)] mb-2">
-                Archivos relacionados
-              </p>
-              <div className="flex flex-col gap-1.5">
-                {v.related_files.map((f, i) => (
-                  <div
+          {files.length > 0 && (
+            <div className="flex flex-col gap-2">
+              <Eyebrow>Archivos citados</Eyebrow>
+              <div className="flex flex-wrap gap-2">
+                {files.map((f, i) => (
+                  <span
                     key={i}
-                    className="flex items-center gap-2 text-xs rounded bg-[var(--color-surface-2)] px-3 py-1.5"
+                    className="inline-flex items-center gap-2 rounded-[var(--taro-radius-control)] bg-[var(--taro-inset)] px-[10px] py-[6px]"
                   >
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      className="h-3.5 w-3.5 text-indigo-400"
-                      viewBox="0 0 20 20"
-                      fill="currentColor"
-                    >
-                      <path
-                        fillRule="evenodd"
-                        d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4z"
-                        clipRule="evenodd"
-                      />
-                    </svg>
-                    <span className="font-mono text-[var(--color-text)]">
+                    <Mono className="text-[11.5px] text-[var(--taro-ink-muted)]">
                       {f.file_path}
-                    </span>
-                    <span className="ml-auto text-[var(--color-text-muted)]">
-                      {Math.round(f.relevance_score * 100)}%
-                    </span>
-                    {f.truncated && <Badge color="warning">truncado</Badge>}
-                  </div>
+                      {f.truncated && "…"}
+                    </Mono>
+                    <Mono className="text-[11.5px] text-[var(--taro-ink-dim)]">
+                      {formatScore(f.relevance_score)}
+                    </Mono>
+                  </span>
                 ))}
               </div>
             </div>
           )}
+
+          {cc && <CrossCheck cc={cc} />}
         </div>
       )}
-    </div>
+    </Card>
   );
 }
 
@@ -275,62 +163,33 @@ export function TaskResultPanel({ result }) {
   const score = computeOverallScore(validations);
   const counts = verdictCounts(validations);
 
+  const cells = [
+    ["Puntuación global", formatScore(score), null],
+    ["Correctas", counts.pass, "correct"],
+    ["Parciales", counts.partial, "partial"],
+    ["Incorrectas", counts.fail, "incorrect"],
+  ];
+
   return (
-    <div className="space-y-6">
-      {/* Summary */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4 text-center">
-          <ScoreCircle score={score} />
-          <p className="mt-1 text-xs text-[var(--color-text-muted)]">
-            Puntuación global
-          </p>
-        </div>
-        <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-4 text-center">
-          <p className="text-3xl font-bold text-emerald-400">{counts.pass}</p>
-          <p className="mt-1 text-xs text-emerald-400/70">Correctas</p>
-        </div>
-        <div className="rounded-xl border border-orange-500/30 bg-orange-500/10 p-4 text-center">
-          <p className="text-3xl font-bold text-orange-400">{counts.partial}</p>
-          <p className="mt-1 text-xs text-orange-400/70">Parciales</p>
-        </div>
-        <div className="rounded-xl border border-red-500/30 bg-red-500/10 p-4 text-center">
-          <p className="text-3xl font-bold text-red-400">{counts.fail}</p>
-          <p className="mt-1 text-xs text-red-400/70">Fallidas</p>
-        </div>
-      </div>
+    <div className="flex flex-col gap-6">
+      <CardGrid columns={2}>
+        {cells.map(([label, value, tone]) => (
+          <CardCell key={label}>
+            <Mono
+              style={tone ? { color: `var(${statusStyle("tone", tone).ink})` } : undefined}
+              className="block text-[30px] leading-none text-[var(--taro-ink)]"
+            >
+              {value}
+            </Mono>
+            <Eyebrow className="mt-3 block">{label}</Eyebrow>
+          </CardCell>
+        ))}
+      </CardGrid>
 
-      {/* Meta */}
-      <div className="flex flex-wrap gap-3 text-xs text-[var(--color-text-muted)]">
-        {result.llm_model && (
-          <span>
-            Modelo:{" "}
-            <strong className="text-[var(--color-text)]">
-              {result.llm_model}
-            </strong>
-          </span>
-        )}
-        {result.embedding_model && (
-          <span>
-            · Embeddings:{" "}
-            <strong className="text-[var(--color-text)]">
-              {result.embedding_model}
-            </strong>
-          </span>
-        )}
-        {result.chunking_strategy && (
-          <span>
-            · Chunking:{" "}
-            <strong className="text-[var(--color-text)]">
-              {result.chunking_strategy}
-            </strong>
-          </span>
-        )}
-      </div>
-
-      {/* Per-rule cards */}
-      <div className="space-y-3">
+      <div className="flex flex-col gap-3">
+        <Eyebrow>Validaciones, regla a regla</Eyebrow>
         {validations.map((v, i) => (
-          <ValidationCard key={i} v={v} index={i} />
+          <ValidationCard key={i} v={v} />
         ))}
       </div>
     </div>

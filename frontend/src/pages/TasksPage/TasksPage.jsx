@@ -4,6 +4,7 @@ import { TaskTable } from "@/widgets/TaskTable/TaskTable";
 import { PageLoader } from "@/shared/ui/Spinner";
 import { Button } from "@/shared/ui/Button";
 import { EmptyState } from "@/shared/ui/EmptyState";
+import { PageHeader, Eyebrow, Body } from "@/shared/ui/Typography";
 
 export function TasksPage() {
   const [page, setPage] = useState(1);
@@ -20,15 +21,12 @@ export function TasksPage() {
   if (loading && !data) return <PageLoader />;
 
   return (
-    <div className="flex flex-col gap-6 p-6 max-w-5xl mx-auto w-full">
-      <div>
-        <h1 className="text-2xl font-bold text-[var(--color-text)]">
-          Evaluaciones
-        </h1>
-        <p className="mt-1 text-sm text-[var(--color-text-muted)]">
-          Historial de todas las validaciones realizadas
-        </p>
-      </div>
+    <div className="mx-auto flex w-full max-w-5xl flex-col gap-8 px-8 py-10">
+      <PageHeader eyebrow="Todos los repositorios" title="Evaluaciones">
+        <Body muted className="mt-3">
+          Historial de todas las validaciones realizadas.
+        </Body>
+      </PageHeader>
 
       {!data?.items?.length && !loading ? (
         <EmptyState
@@ -42,10 +40,9 @@ export function TasksPage() {
           {/* Pagination */}
           {data && data.total_pages > 1 && (
             <div className="flex items-center justify-between">
-              <p className="text-xs text-[var(--color-text-muted)]">
-                Página {data.page} de {data.total_pages} · {data.total}{" "}
-                evaluaciones
-              </p>
+              <Eyebrow>
+                Página {data.page} de {data.total_pages} · {data.total} evaluaciones
+              </Eyebrow>
               <div className="flex gap-2">
                 <Button
                   variant="secondary"
@@ -56,7 +53,7 @@ export function TasksPage() {
                     setPage((p) => p - 1);
                   }}
                 >
-                  ← Anterior
+                  Anterior
                 </Button>
                 <Button
                   variant="secondary"
@@ -67,7 +64,7 @@ export function TasksPage() {
                     setPage((p) => p + 1);
                   }}
                 >
-                  Siguiente →
+                  Siguiente
                 </Button>
               </div>
             </div>

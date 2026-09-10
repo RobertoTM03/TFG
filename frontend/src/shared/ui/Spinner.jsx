@@ -4,7 +4,7 @@ export function Spinner({ size = "md", className }) {
   const sizes = { sm: "h-4 w-4", md: "h-8 w-8", lg: "h-12 w-12" };
   return (
     <svg
-      className={clsx("animate-spin text-indigo-500", sizes[size], className)}
+      className={clsx("animate-spin", sizes[size], className)}
       xmlns="http://www.w3.org/2000/svg"
       fill="none"
       viewBox="0 0 24 24"
@@ -28,7 +28,7 @@ export function Spinner({ size = "md", className }) {
 
 export function PageLoader() {
   return (
-    <div className="flex h-full min-h-[400px] items-center justify-center">
+    <div className="flex h-full min-h-[400px] items-center justify-center text-[var(--taro-brass)]">
       <Spinner size="lg" />
     </div>
   );

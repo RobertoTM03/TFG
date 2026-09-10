@@ -1,26 +1,22 @@
 import { clsx } from "../lib/utils";
 
-export function ProgressBar({ value = 0, color = "primary", className }) {
-  const colorMap = {
-    primary: "bg-indigo-500",
-    success: "bg-emerald-500",
-    danger: "bg-red-500",
-    warning: "bg-amber-500",
-  };
+export function ProgressBar({ value = 0, className }) {
+  const pct = Math.min(100, Math.max(0, value));
 
   return (
     <div
       className={clsx(
-        "h-1.5 w-full rounded-full bg-[var(--color-border)]",
+        "h-[4px] w-full overflow-hidden rounded-[var(--taro-radius-control)] bg-[var(--taro-line)]",
         className,
       )}
+      role="progressbar"
+      aria-valuenow={pct}
+      aria-valuemin={0}
+      aria-valuemax={100}
     >
       <div
-        className={clsx(
-          "h-full rounded-full transition-all duration-500",
-          colorMap[color],
-        )}
-        style={{ width: `${Math.min(100, Math.max(0, value))}%` }}
+        className="h-full rounded-[var(--taro-radius-control)] bg-[var(--taro-brass)]"
+        style={{ width: `${pct}%` }}
       />
     </div>
   );

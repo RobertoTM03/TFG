@@ -4,23 +4,16 @@ import { Button } from "@/shared/ui/Button";
 import { Input } from "@/shared/ui/Input";
 import { Spinner } from "@/shared/ui/Spinner";
 
-function thresholdColor(pct) {
-  if (pct < 40) return { track: "#ef4444", text: "text-red-400" };
-  if (pct < 70) return { track: "#f59e0b", text: "text-amber-400" };
-  if (pct < 90) return { track: "#6366f1", text: "text-indigo-400" };
-  return { track: "#22c55e", text: "text-emerald-400" };
-}
-
 function ThresholdSlider({ value, onChange }) {
   const pct = Math.round(value * 100);
-  const { track, text } = thresholdColor(pct);
+  const track = "var(--taro-brass)";
   return (
     <div className="flex flex-col gap-2">
       <div className="flex items-center justify-between">
-        <span className="text-sm font-medium text-[var(--color-text)]">
+        <span className="text-sm font-medium text-[var(--taro-ink)]">
           Umbral de aprobación
         </span>
-        <span className={`text-lg font-bold tabular-nums ${text}`}>
+        <span className="font-[family-name:var(--taro-font-mono)] text-[18px] text-[var(--taro-brass)]">
           {pct}%
         </span>
       </div>
@@ -33,13 +26,13 @@ function ThresholdSlider({ value, onChange }) {
         onChange={(e) => onChange(parseInt(e.target.value, 10) / 100)}
         className="w-full h-2 rounded-full appearance-none cursor-pointer"
         style={{
-          background: `linear-gradient(to right, ${track} ${pct}%, var(--color-border) ${pct}%)`,
+          background: `linear-gradient(to right, ${track} ${pct}%, var(--taro-line) ${pct}%)`,
           accentColor: track,
         }}
       />
-      <div className="flex justify-between text-xs text-[var(--color-text-muted)]">
+      <div className="flex justify-between text-xs text-[var(--taro-ink-muted)]">
         <span>0%</span>
-        <span className="text-xs text-[var(--color-text-muted)]">
+        <span className="text-xs text-[var(--taro-ink-muted)]">
           Porcentaje mínimo de reglas superadas para aprobar el PR
         </span>
         <span>100%</span>
@@ -52,9 +45,9 @@ function Toggle({ label, description, checked, onChange }) {
   return (
     <label className="flex items-start justify-between gap-4 cursor-pointer">
       <div>
-        <p className="text-sm font-medium text-[var(--color-text)]">{label}</p>
+        <p className="text-sm font-medium text-[var(--taro-ink)]">{label}</p>
         {description && (
-          <p className="text-xs text-[var(--color-text-muted)] mt-0.5">
+          <p className="text-xs text-[var(--taro-ink-muted)] mt-0.5">
             {description}
           </p>
         )}
@@ -62,7 +55,7 @@ function Toggle({ label, description, checked, onChange }) {
       <div
         onClick={() => onChange(!checked)}
         className={`relative flex-shrink-0 mt-0.5 w-10 h-5 rounded-full transition-colors duration-200 cursor-pointer ${
-          checked ? "bg-indigo-600" : "bg-[var(--color-border)]"
+          checked ? "bg-[var(--taro-brass)]" : "bg-[var(--taro-line)]"
         }`}
       >
         <span
@@ -89,14 +82,14 @@ const DEFAULTS = {
 function ModelSelect({ label, description, value, onChange, models, defaultLabel }) {
   return (
     <div className="flex flex-col gap-1.5">
-      <label className="text-sm font-medium text-[var(--color-text)]">{label}</label>
+      <label className="text-sm font-medium text-[var(--taro-ink)]">{label}</label>
       {description && (
-        <p className="text-xs text-[var(--color-text-muted)]">{description}</p>
+        <p className="text-xs text-[var(--taro-ink-muted)]">{description}</p>
       )}
       <select
         value={value ?? ""}
         onChange={(e) => onChange(e.target.value || null)}
-        className="w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-2)] px-3 py-2 text-sm text-[var(--color-text)] outline-none transition-colors focus:border-indigo-500 appearance-none cursor-pointer"
+        className="w-full rounded-lg border border-[var(--taro-line)] bg-[var(--taro-raised)] px-3 py-2 text-sm text-[var(--taro-ink)] outline-none transition-colors focus:border-[var(--taro-line-brass)] appearance-none cursor-pointer"
         style={{ backgroundImage: "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%236b7280' d='M6 8L1 3h10z'/%3E%3C/svg%3E\")", backgroundRepeat: "no-repeat", backgroundPosition: "right 0.75rem center" }}
       >
         <option value="">{defaultLabel}</option>
@@ -214,7 +207,7 @@ export function RepoSettingsForm({ owner, repo }) {
       </div>
 
       <div className="flex flex-col gap-3">
-        <p className="text-sm font-semibold text-[var(--color-text)]">Modelos LLM</p>
+        <p className="text-sm font-semibold text-[var(--taro-ink)]">Modelos LLM</p>
         {settings.enable_cross_check ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <ModelSelect
@@ -246,7 +239,7 @@ export function RepoSettingsForm({ owner, repo }) {
         )}
       </div>
 
-      {error && <p className="text-xs text-red-400">{error}</p>}
+      {error && <p className="text-xs text-[var(--taro-incorrect-ink)]">{error}</p>}
 
       <div className="flex justify-end">
         <Button

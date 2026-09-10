@@ -1,28 +1,32 @@
 @import "tailwindcss";
+/* En `base` a propósito: si no, las reglas de taro.css ganarían a las utilidades. */
+@import "./shared/styles/taro.css" layer(base);
 
 @theme {
-  --radius-sm: 2px;
-  --radius-md: 3px;
-  --radius-lg: 4px;
-  --radius-xl: 5px;
-  --radius-2xl: 7px;
-  --radius-3xl: 9px;
+  /* Rampa de radios Taro */
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 10px;
+  --radius-xl: 14px;
+  --radius-2xl: 16px;
+  --radius-3xl: 20px;
 }
 
 @layer base {
   :root {
-    --color-bg: #000000;
-    --color-surface: #0a0a0a;
-    --color-surface-2: #111111;
-    --color-border: rgba(255, 255, 255, 0.1);
-    --color-text: #ededed;
-    --color-text-muted: #888888;
-    --color-primary: #0070f3;
-    --color-primary-hover: #0060df;
-    --color-success: #50e3c2;
-    --color-warning: #f5a623;
-    --color-danger: #e00;
-    --color-partial: #f97316;
+    /* Alias heredados sobre tokens Taro. Eliminar con el último uso. */
+    --color-bg: var(--taro-bg);
+    --color-surface: var(--taro-surface);
+    --color-surface-2: var(--taro-raised);
+    --color-border: var(--taro-line);
+    --color-text: var(--taro-ink);
+    --color-text-muted: var(--taro-ink-muted);
+    --color-primary: var(--taro-brass);
+    --color-primary-hover: var(--taro-brass);
+    --color-success: var(--taro-correct);
+    --color-warning: var(--taro-partial);
+    --color-danger: var(--taro-incorrect);
+    --color-partial: var(--taro-partial);
   }
 
   * {
@@ -38,18 +42,13 @@
   }
 
   body {
-    background-color: var(--color-bg);
-    color: var(--color-text);
-    font-family:
-      -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", Arial,
-      sans-serif;
-    -webkit-font-smoothing: antialiased;
     font-size: 14px;
+    line-height: 1.6;
   }
 
-  a {
-    color: inherit;
-    text-decoration: none;
+  p,
+  li {
+    text-wrap: pretty;
   }
 
   ::-webkit-scrollbar {
@@ -62,11 +61,11 @@
   }
 
   ::-webkit-scrollbar-thumb {
-    background: #333;
-    border-radius: 3px;
+    background: var(--taro-line-strong);
+    border-radius: var(--taro-radius-control);
   }
 
   ::-webkit-scrollbar-thumb:hover {
-    background: #555;
+    background: var(--taro-line-quiet);
   }
 }

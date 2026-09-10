@@ -2,6 +2,7 @@ import { NavLink, useNavigate } from "react-router-dom";
 import { useAuth } from "@/features/auth/AuthContext";
 import { getUserDisplayName } from "@/entities/user/model";
 import { clsx } from "@/shared/lib/utils";
+import { BrandLockup } from "@/shared/ui/Brand";
 
 const navItems = [
   {
@@ -98,54 +99,25 @@ export function Sidebar() {
   const displayName = user ? getUserDisplayName(user) : "";
 
   return (
-    <aside
-      style={{ borderRight: "1px solid rgba(255,255,255,0.07)" }}
-      className="flex h-full w-56 shrink-0 flex-col bg-[var(--color-surface)]"
-    >
-      {/* Logo / app name */}
-      <div
-        style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}
-        className="flex items-center gap-2.5 px-3 py-3"
-      >
-        <div className="flex h-5 w-5 items-center justify-center rounded bg-[var(--color-primary)]">
-          <svg
-            width="12"
-            height="12"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="white"
-            strokeWidth="2.5"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          >
-            <polyline points="16 18 22 12 16 6" />
-            <polyline points="8 6 2 12 8 18" />
-          </svg>
-        </div>
-        <span className="text-[13px] font-semibold text-[var(--color-text)]">
-          CodeReview AI
-        </span>
-        <span
-          style={{ border: "1px solid rgba(255,255,255,0.12)" }}
-          className="ml-auto rounded px-1.5 py-0.5 text-[10px] font-medium text-[var(--color-text-muted)]"
-        >
-          TFG
-        </span>
+    <aside className="flex h-full w-[200px] shrink-0 flex-col border-r border-[var(--taro-line)] bg-[var(--taro-surface)]">
+      <div className="px-4 py-[18px]">
+        <BrandLockup />
       </div>
 
       {/* Nav */}
-      <nav className="flex-1 overflow-y-auto px-2 py-2">
-        <ul className="flex flex-col gap-px">
+      <nav className="flex-1 overflow-y-auto px-3 py-1">
+        <ul className="flex flex-col gap-0.5">
           {navItems.map((item) => (
             <li key={item.to}>
               <NavLink
                 to={item.to}
                 className={({ isActive }) =>
                   clsx(
-                    "flex items-center gap-2.5 rounded-md px-2.5 py-1.5 text-[13px] transition-colors",
+                    "flex items-center gap-2.5 rounded-[var(--taro-radius-control)] px-[10px] py-[9px] text-[13.5px]",
+                    "transition-[background-color,color] duration-[250ms]",
                     isActive
-                      ? "bg-[#1a1a1a] text-[var(--color-text)]"
-                      : "text-[var(--color-text-muted)] hover:bg-[#111] hover:text-[var(--color-text)]",
+                      ? "bg-[var(--taro-raised)] text-[var(--taro-ink)]"
+                      : "text-[var(--taro-ink-muted)] hover:bg-[var(--taro-raised)] hover:text-[var(--taro-ink)]",
                   )
                 }
               >
@@ -159,23 +131,20 @@ export function Sidebar() {
 
       {/* User footer */}
       {user && (
-        <div
-          style={{ borderTop: "1px solid rgba(255,255,255,0.07)" }}
-          className="px-2 py-2"
-        >
-          <div className="flex items-center gap-2.5 rounded-md px-2.5 py-1.5">
+        <div className="border-t border-[var(--taro-line)] px-3 py-3">
+          <div className="flex items-center gap-2.5">
             <img
               src={user.avatar_url}
               alt={displayName}
               className="h-6 w-6 rounded-full"
             />
-            <span className="flex-1 truncate text-[13px] font-medium text-[var(--color-text)]">
+            <span className="flex-1 truncate font-[family-name:var(--taro-font-mono)] text-[12px] text-[var(--taro-ink-muted)]">
               {displayName}
             </span>
             <button
               onClick={handleLogout}
               title="Cerrar sesión"
-              className="text-[var(--color-text-muted)] transition-colors hover:text-red-400"
+              className="text-[var(--taro-ink-dim)] transition-[color] duration-[250ms] hover:text-[var(--taro-incorrect-ink)]"
             >
               <svg
                 width="15"

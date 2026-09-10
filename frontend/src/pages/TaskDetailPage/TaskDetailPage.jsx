@@ -4,17 +4,16 @@ import { fetchTask } from "@/entities/task/api";
 import { isTerminal, TASK_STATUS, parseTaskError } from "@/entities/task/model";
 import { useTaskWebSocket } from "@/features/auth/useTaskWebSocket";
 import { TaskResultPanel } from "@/widgets/TaskResultPanel/TaskResultPanel";
-import { PageLoader } from "@/shared/ui/Spinner";
+import { PageLoader, Spinner } from "@/shared/ui/Spinner";
 import { Badge } from "@/shared/ui/Badge";
 import { ProgressBar } from "@/shared/ui/ProgressBar";
-import { formatDate, formatDuration, statusColor } from "@/shared/lib/utils";
+import { Card } from "@/shared/ui/Card";
+import { Eyebrow, Body, Mono, SectionTitle, PageTitle } from "@/shared/ui/Typography";
+import { formatDate, formatDuration, formatScore } from "@/shared/lib/utils";
+import { statusStyle } from "@/shared/lib/status";
+import { computeOverallScore } from "@/entities/task/model";
 
-const STATUS_LABELS = {
-  pending: "Pendiente",
-  running: "Ejecutando",
-  completed: "Completado",
-  failed: "Fallido",
-};
+const GH = "https://github.com";
 
 export function TaskDetailPage() {
   const { taskId } = useParams();
@@ -68,7 +67,7 @@ export function TaskDetailPage() {
   if (loading) return <PageLoader />;
   if (!task) {
     return (
-      <div className="p-6 text-center text-[var(--color-text-muted)]">
+      <div className="px-8 py-10 text-center text-[var(--taro-ink-muted)]">
         Evaluación no encontrada.
       </div>
     );
@@ -78,124 +77,118 @@ export function TaskDetailPage() {
     task.status === TASK_STATUS.RUNNING || task.status === TASK_STATUS.PENDING;
 
   return (
-    <div className="flex flex-col gap-6 p-6 max-w-5xl mx-auto w-full">
-      {/* Breadcrumb */}
-      <nav className="flex items-center gap-2 text-sm text-[var(--color-text-muted)]">
-        <Link
-          to="/tasks"
-          className="hover:text-[var(--color-text)] transition-colors"
-        >
+    <div className="mx-auto flex w-full max-w-5xl flex-col gap-6 px-8 py-10">
+      {/* Migas */}
+      <nav className="flex items-center gap-2 text-[13px] text-[var(--taro-ink-dim)]">
+        <Link to="/tasks" className="text-[var(--taro-ink-dim)] transition-[color] duration-[250ms] hover:text-[var(--taro-ink)] hover:no-underline">
           Evaluaciones
         </Link>
         <span>/</span>
-        <span className="text-[var(--color-text)] font-mono text-xs">
-          {taskId.slice(0, 8)}…
-        </span>
+        <Mono className="text-[12px] text-[var(--taro-ink-muted)]">
+          {taskId.slice(0, 8)}
+        </Mono>
       </nav>
 
-      {/* Header */}
-      <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5">
-        <div className="flex items-start justify-between gap-4 flex-wrap">
-          <div>
-            <div className="flex items-center gap-2 mb-2 flex-wrap">
-              <Badge color={statusColor(task.status)}>
-                {isRunning && (
-                  <span className="h-1.5 w-1.5 rounded-full bg-current animate-pulse" />
-                )}
-                {STATUS_LABELS[task.status] ?? task.status}
-              </Badge>
+      {/* Cabecera */}
+      <Card>
+        <div className="flex flex-wrap items-start justify-between gap-6">
+          <div className="min-w-0">
+            <div className="mb-3 flex flex-wrap items-center gap-2">
+              <Badge kind="task" value={task.status} />
               {task.pr_number && (
                 <a
-                  href={`https://github.com/${task.repository_full_name}/pull/${task.pr_number}`}
+                  href={`${GH}/${task.repository_full_name}/pull/${task.pr_number}`}
                   target="_blank"
                   rel="noreferrer"
-                  onClick={(e) => e.stopPropagation()}
+                  className="hover:no-underline"
                 >
-                  <Badge color="primary">PR #{task.pr_number} ↗</Badge>
+                  <Badge kind="tone" value="brass">PR #{task.pr_number}</Badge>
                 </a>
               )}
               {task.pr_head_ref && (
                 <a
-                  href={`https://github.com/${task.repository_full_name}/tree/${task.pr_head_ref}`}
+                  href={`${GH}/${task.repository_full_name}/tree/${task.pr_head_ref}`}
                   target="_blank"
                   rel="noreferrer"
-                  onClick={(e) => e.stopPropagation()}
-                  className="inline-flex items-center gap-1 rounded-full border border-[var(--color-border)] bg-[var(--color-surface-2)] px-2.5 py-0.5 text-xs text-[var(--color-text-muted)] hover:border-indigo-500/50 hover:text-indigo-400 transition-colors"
+                  className="hover:no-underline"
                 >
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" viewBox="0 0 20 20" fill="currentColor">
-                    <path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd" />
-                  </svg>
-                  {task.pr_head_ref}
+                  <Badge kind="tone" value="neutral">{task.pr_head_ref}</Badge>
                 </a>
               )}
             </div>
-            <div className="flex items-center gap-2">
-              <Link
-                to={`/repos/${task.repository_full_name}`}
-                className="inline-flex items-center gap-1.5 group"
-              >
-                <h1 className="text-xl font-bold text-[var(--color-text)] group-hover:text-indigo-400 transition-colors">
-                  {task.repository_full_name}
-                </h1>
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  className="h-4 w-4 text-[var(--color-text-muted)] group-hover:text-indigo-400 transition-colors"
-                  viewBox="0 0 20 20"
-                  fill="currentColor"
-                >
-                  <path d="M11 3a1 1 0 100 2h2.586l-6.293 6.293a1 1 0 101.414 1.414L15 6.414V9a1 1 0 102 0V4a1 1 0 00-1-1h-5z" />
-                  <path d="M5 5a2 2 0 00-2 2v8a2 2 0 002 2h8a2 2 0 002-2v-3a1 1 0 10-2 0v3H5V7h3a1 1 0 000-2H5z" />
-                </svg>
-              </Link>
+
+            <Link to={`/repos/${task.repository_full_name}`} className="hover:no-underline">
+              <PageTitle className="truncate transition-[color] duration-[250ms] hover:text-[var(--taro-brass)]">
+                {task.repository_full_name}
+              </PageTitle>
+            </Link>
+
+            <div className="mt-4 flex flex-wrap items-center gap-x-6 gap-y-2">
+              {[
+                ["llm_model", task.llm_model],
+                ["embedding_model", task.embedding_model],
+                ["chunking_strategy", task.chunking_strategy],
+              ]
+                .filter(([, v]) => v)
+                .map(([label, value]) => (
+                  <span key={label} className="flex items-center gap-2">
+                    <Mono className="text-[11.5px] text-[var(--taro-ink-dim)]">{label}</Mono>
+                    <Mono className="text-[11.5px] text-[var(--taro-ink-muted)]">{value}</Mono>
+                  </span>
+                ))}
             </div>
-            <p className="text-xs text-[var(--color-text-muted)] mt-1 font-mono">
-              {taskId}
-            </p>
           </div>
-          <div className="text-right text-xs text-[var(--color-text-muted)] space-y-1">
-            <p>
-              Creado:{" "}
-              <span className="text-[var(--color-text)]">
-                {formatDate(task.created_at)}
-              </span>
-            </p>
-            {task.started_at && (
-              <p>
-                Iniciado:{" "}
-                <span className="text-[var(--color-text)]">
-                  {formatDate(task.started_at)}
-                </span>
-              </p>
-            )}
-            {task.completed_at && (
-              <p>
-                Duración:{" "}
-                <span className="text-[var(--color-text)]">
-                  {formatDuration(task.started_at, task.completed_at)}
-                </span>
-              </p>
-            )}
+
+          <div className="shrink-0 text-right">
+            {(() => {
+              const score = computeOverallScore(task.result?.validations ?? []);
+              if (score == null) return null;
+              const ink = statusStyle("task", task.status).ink;
+              return (
+                <>
+                  <Mono
+                    style={{ color: `var(${ink})` }}
+                    className="block text-[40px] leading-none tracking-[-1.5px]"
+                  >
+                    {formatScore(score)}
+                  </Mono>
+                  <Eyebrow className="mt-2 block normal-case tracking-[0.08em]">
+                    puntuación global · umbral {formatScore(task.approval_threshold)}
+                  </Eyebrow>
+                </>
+              );
+            })()}
+            <div className="mt-4 flex flex-col items-end gap-1">
+              <Eyebrow className="normal-case tracking-[0.06em]">
+                creado {formatDate(task.created_at)}
+              </Eyebrow>
+              {task.completed_at && (
+                <Eyebrow className="normal-case tracking-[0.06em]">
+                  duración {formatDuration(task.started_at, task.completed_at)}
+                </Eyebrow>
+              )}
+            </div>
           </div>
         </div>
 
         {/* Retry warning */}
         {isRunning && task.retry_count > 4 && (
-          <div className="mt-4 rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-400">
+          <div className="mt-6 rounded-[var(--taro-radius-row)] border border-[var(--taro-partial-line)] bg-[var(--taro-partial-bg)] px-4 py-3 text-[13.5px] leading-[1.6] text-[var(--taro-partial-ink)]">
             La evaluación está tardando más de lo esperado debido a problemas temporales con el servicio.
             Se reanudará automáticamente — no es necesario hacer nada.
             {task.retry_count > 1 && (
-              <span className="ml-1 opacity-70">(intento {task.retry_count})</span>
+              <span className="ml-1">(intento {task.retry_count})</span>
             )}
           </div>
         )}
 
         {/* Progress */}
         {isRunning && (
-          <div className="mt-4 space-y-2">
-            <ProgressBar value={task.progress ?? 0} color={task.retry_count > 4 ? "warning" : "primary"} />
-            <p className="text-xs text-[var(--color-text-muted)]">
+          <div className="mt-6 flex flex-col gap-2">
+            <ProgressBar value={task.progress ?? 0} />
+            <Eyebrow className="normal-case tracking-[0.06em]">
               {task.progress_message || "Procesando…"}{task.retry_count <= 4 && ` (${task.progress ?? 0}%)`}
-            </p>
+            </Eyebrow>
           </div>
         )}
 
@@ -203,15 +196,20 @@ export function TaskDetailPage() {
         {task.status === TASK_STATUS.FAILED && task.error && (() => {
           const err = parseTaskError(task.error);
           return (
-            <div className="mt-4 rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm">
-              <p className="font-semibold text-red-400">{err.title}</p>
-              <p className="mt-1 text-red-300">{err.message}</p>
+            <div
+              style={{ borderColor: `var(${statusStyle("error", err.code).line})` }}
+              className="mt-6 rounded-[var(--taro-radius-row)] border bg-[var(--taro-incorrect-bg)] px-4 py-3"
+            >
+              <p className="text-[13.5px] font-semibold text-[var(--taro-incorrect-ink)]">{err.title}</p>
+              <p className="mt-1 min-h-[22px] text-[13.5px] leading-[22px] text-[var(--taro-incorrect-ink)] [text-wrap:pretty]">
+                {err.message}
+              </p>
               {err.technical && (
                 <details className="mt-2">
-                  <summary className="cursor-pointer text-xs text-red-500/70 hover:text-red-400">
+                  <summary className="cursor-pointer font-[family-name:var(--taro-font-mono)] text-[11px] uppercase tracking-[0.14em] text-[var(--taro-ink-dim)] transition-[color] duration-[250ms] hover:text-[var(--taro-ink-muted)]">
                     Detalles técnicos
                   </summary>
-                  <pre className="mt-1 overflow-x-auto whitespace-pre-wrap break-all text-xs text-red-500/60">
+                  <pre className="mt-2 overflow-x-auto rounded-[var(--taro-radius-control)] bg-[var(--taro-inset)] p-3 font-[family-name:var(--taro-font-mono)] text-[11.5px] whitespace-pre-wrap break-all text-[var(--taro-ink-dim)]">
                     {err.technical}
                   </pre>
                 </details>
@@ -219,28 +217,25 @@ export function TaskDetailPage() {
             </div>
           );
         })()}
-      </div>
+      </Card>
 
-      {/* Rules used */}
+      {/* Reglas evaluadas */}
       {task.rules?.length > 0 && (
-        <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5">
-          <h2 className="text-sm font-semibold text-[var(--color-text)] mb-3">
+        <Card>
+          <SectionTitle className="mb-5">
             Reglas evaluadas ({task.rules.length})
-          </h2>
-          <ol className="space-y-1.5">
+          </SectionTitle>
+          <ol className="flex flex-col gap-3">
             {task.rules.map((r, i) => (
-              <li
-                key={i}
-                className="flex items-start gap-2 text-sm text-[var(--color-text-muted)]"
-              >
-                <span className="text-xs font-bold text-indigo-400 mt-0.5">
-                  {i + 1}.
-                </span>
-                {r.rule_text ?? r}
+              <li key={i} className="flex items-start gap-4">
+                <Mono className="mt-[3px] w-6 shrink-0 text-[11.5px] text-[var(--taro-ink-dim)]">
+                  {String(i + 1).padStart(2, "0")}
+                </Mono>
+                <Body muted className="flex-1">{r.rule_text ?? r}</Body>
               </li>
             ))}
           </ol>
-        </div>
+        </Card>
       )}
 
       {/* Results */}
@@ -248,12 +243,11 @@ export function TaskDetailPage() {
 
       {/* Loading spinner while running */}
       {isRunning && (
-        <div className="flex flex-col items-center gap-3 py-10 text-center">
-          <div className="h-8 w-8 rounded-full border-2 border-indigo-500 border-t-transparent animate-spin" />
-          <p className="text-sm text-[var(--color-text-muted)]">
-            Evaluación en progreso… los resultados aparecerán aquí
-            automáticamente.
-          </p>
+        <div className="flex flex-col items-center gap-4 py-10 text-center">
+          <Spinner />
+          <Body muted>
+            Evaluación en progreso… los resultados aparecerán aquí automáticamente.
+          </Body>
         </div>
       )}
     </div>
