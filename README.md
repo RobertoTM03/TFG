@@ -14,6 +14,10 @@
 </p>
 
 <p align="center">
+  <em>Created as my Final Degree Project (Trabajo de Fin de Grado, TFG).</em>
+</p>
+
+<p align="center">
   <img alt="Version" src="https://img.shields.io/github/package-json/v/RobertoTM03/TFG?filename=frontend%2Fpackage.json">
   <img alt="License" src="https://img.shields.io/badge/license-MIT-blue">
   <img alt="Python" src="https://img.shields.io/badge/python-3.11-3776AB?logo=python&logoColor=white">
