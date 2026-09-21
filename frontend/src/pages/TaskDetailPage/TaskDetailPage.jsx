@@ -40,27 +40,40 @@ export function TaskDetailPage() {
   }, [task?.status, load]);
 
   // WebSocket: instant updates when the backend pushes progress events.
+  // Only task_state carries `status`; the other events imply it by their type.
   useTaskWebSocket(
     !isTerminal(task?.status) ? taskId : null,
     useCallback(
       (msg) => {
-        setTask((prev) => {
-          if (!prev) return prev;
-          const updated = {
-            ...prev,
-            status: msg.status,
-            progress: msg.progress ?? prev.progress,
-            progress_message: msg.message ?? prev.progress_message,
-          };
-          if (isTerminal(msg.status)) {
-            fetchTask(taskId)
-              .then(setTask)
-              .catch(() => {});
-          }
-          return updated;
-        });
+        // An unsubscribed socket receives events of every task of the user.
+        if (msg.task_id !== taskId) return;
+
+        const status =
+          msg.type === "task_completed"
+            ? TASK_STATUS.COMPLETED
+            : msg.type === "task_failed"
+              ? TASK_STATUS.FAILED
+              : msg.type === "task_requeued"
+                ? TASK_STATUS.PENDING
+                : msg.type === "task_progress"
+                  ? TASK_STATUS.RUNNING
+                  : msg.status;
+
+        setTask((prev) =>
+          prev
+            ? {
+                ...prev,
+                status: status ?? prev.status,
+                progress: msg.progress ?? prev.progress,
+                progress_message: msg.message ?? prev.progress_message,
+              }
+            : prev,
+        );
+
+        // Terminal state: load the full task (result, error, timestamps).
+        if (isTerminal(status)) load();
       },
-      [taskId],
+      [taskId, load],
     ),
   );
 
