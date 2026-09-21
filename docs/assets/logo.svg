@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256" role="img" aria-label="Taro">
+  <rect x="4" y="4" width="248" height="248" rx="56" fill="#17140F" stroke="#4A3E28" stroke-width="4"/>
+  <path fill="#D9A54C" d="M72 62h112v30h-41v76h-30V92H72z"/>
+  <rect x="68" y="184" width="120" height="14" fill="#D9A54C"/>
+</svg>

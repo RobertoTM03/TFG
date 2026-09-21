@@ -1,6 +1,33 @@
-# Semantic Repository Validator
+<p align="center">
+  <img src="./docs/assets/logo.svg" alt="Taro" width="150">
+</p>
 
-A platform that evaluates whether a codebase complies with a set of rules written in plain language. Rules are defined once per repository; the system checks them automatically on every pull request and posts a detailed per-rule verdict with explanations and code references.
+<h1 align="center">Taro</h1>
+<p align="center">
+  Semantic Repository Validator — check your code against rules written in plain language.
+</p>
+
+<p align="center">
+  <strong>Define your team's conventions once, and get a per-rule verdict with explanations and code references on every pull request.</strong>
+  <br>
+  Powered by vector search and LLM evaluation, wired into GitHub through a GitHub App.
+</p>
+
+<p align="center">
+  <img alt="Version" src="https://img.shields.io/github/package-json/v/RobertoTM03/TFG?filename=frontend%2Fpackage.json">
+  <img alt="License" src="https://img.shields.io/badge/license-MIT-blue">
+  <img alt="Python" src="https://img.shields.io/badge/python-3.11-3776AB?logo=python&logoColor=white">
+  <img alt="React" src="https://img.shields.io/badge/react-19-61DAFB?logo=react&logoColor=white">
+  <img alt="PostgreSQL" src="https://img.shields.io/badge/postgresql-16-4169E1?logo=postgresql&logoColor=white">
+  <img alt="Docker" src="https://img.shields.io/badge/docker-compose-2496ED?logo=docker&logoColor=white">
+</p>
+
+<p align="center">
+  <a href="#how-it-works">How it works</a> &nbsp;|&nbsp;
+  <a href="#stack">Stack</a> &nbsp;|&nbsp;
+  <a href="#quick-start">Quick start</a> &nbsp;|&nbsp;
+  <a href="#github-app-setup">GitHub App setup</a>
+</p>
 
 ![Dashboard](docs/assets/dashboard.png)
 
